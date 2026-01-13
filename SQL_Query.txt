@@ -1,0 +1,4 @@
+SQL Query:
+
++ Issue with Custom Field Data:
+SELECT i.id, JSON_OBJECTAGG(cf.name, cv.value) AS custom_fields FROM issues i LEFT JOIN custom_values cv ON i.id = cv.customized_id AND cv.customized_type = 'Issue' LEFT JOIN custom_fields cf ON cf.id = cv.custom_field_id WHERE i.id = 3 GROUP BY i.id;

@@ -95,14 +95,7 @@ The system loads:
 
 ---
 
-## 8. Background Job Execution
-- Notification emails are rendered (text + HTML)
-- Emails are delivered to relevant users
-- Failures are logged without blocking the main request
-
----
-
-## 9. Request Completion
+## 8. Request Completion
 - HTTP Status: `200 OK`
 - Page is fully rendered and returned to the client
 - Database queries, view rendering, and garbage collection are completed

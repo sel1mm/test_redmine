@@ -43,6 +43,54 @@ Typical data included in the request:
 - Custom field values (text, number, date, list, URL, file, etc.)
 - Attachments
 
+Example:
+```json
+
+{
+  "issue": {
+    "is_private": false,
+    "tracker_id": 1,
+    "subject": "Test flow data redmine",
+    "description": "Test flow data redmine of description",
+    "status_id": 1,
+    "priority_id": 4,
+    "assigned_to_id": 1,
+    "fixed_version_id": 2,
+    "parent_issue_id": null,
+    "start_date": "2026-01-16",
+    "due_date": "2026-01-31",
+    "estimated_hours": 88,
+    "done_ratio": 80,
+
+    "custom_field_values": {
+      "3": "1",
+      "6": "2026-01-13",
+      "8": "8.8",
+      "9": "88",
+      "10": "1",
+      "12": "www.example88.com",
+      "13": "Option 2",
+      "15": "Test flow data redmine of long text",
+      "16": "80",
+      "17": "Test flow data redmine of text",
+      "18": "",
+      "20": "2"
+    },
+
+    "watcher_user_ids": []
+  },
+
+  "attachments": [
+    {
+      "filename": "Issue_Tracking_in_Redmine.html",
+      "description": "Test flow data redmine for option description of files",
+      "token": "15.fbe5d52e58f36913344e7a36cd1feca76789301862f7582927b3c0c1efb751b6"
+    }
+  ]
+}
+
+```
+
 All parameters are validated before persistence.
 
 ---

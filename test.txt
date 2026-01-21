@@ -1,0 +1,32 @@
+
+const CUSTOM_FIELD_KEYS = [
+  'testBoolean',
+  'testDate',
+  'testInteger',
+  'testFloat',
+  'testFile',
+  'testKeyValueList',
+  'testLink',
+  'testList',
+  'testText',
+  'testProgressBar',
+  'testString',
+  'testUser',
+  'testVersion',
+];
+
+module.exports = (req, res, next) => {
+  const customField = {};
+
+  CUSTOM_FIELD_KEYS.forEach((key) => {
+    if (req.body[key] !== undefined && req.body[key] !== null) {
+      customField[key] = req.body[key];
+      delete req.body[key]; 
+  });
+
+  if (Object.keys(customField).length > 0) {
+    req.body.customField = customField;
+  }
+
+  next();
+};

@@ -1,32 +1,47 @@
 
-const CUSTOM_FIELD_KEYS = [
-  'testBoolean',
-  'testDate',
-  'testInteger',
-  'testFloat',
-  'testFile',
-  'testKeyValueList',
-  'testLink',
-  'testList',
-  'testText',
-  'testProgressBar',
-  'testString',
-  'testUser',
-  'testVersion',
-];
+const CUSTOM_FIELD_MAP = {
+  testBoolean: 'Test Boolean',
+  testDate: 'Test Date',
+  testInteger: 'Test Integer',
+  testFloat: 'Test Float',
+  testFile: 'Test File',
+  testKeyValueList: 'Test Key Value List',
+  testLink: 'Test Link',
+  testList: 'Test List',
+  testText: 'Test Text',
+  testProgressBar: 'Test Progress Bar',
+  testString: 'Test String',
+  testUser: 'Test User',
+  testVersion: 'Test Version',
+};
+
 
 module.exports = (req, res, next) => {
-  const customField = {};
+  const { customField } = req.body;
 
-  CUSTOM_FIELD_KEYS.forEach((key) => {
-    if (req.body[key] !== undefined && req.body[key] !== null) {
-      customField[key] = req.body[key];
-      delete req.body[key]; 
-  });
-
-  if (Object.keys(customField).length > 0) {
-    req.body.customField = customField;
+  if (!customField || typeof customField !== 'object') {
+    return next();
   }
+
+  const customFieldArray = Object.entries(customField)
+    .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => ({
+      name: CUSTOM_FIELD_MAP[key] || key,
+      value: String(value),
+    }));
+
+  req.body.customField = customFieldArray;
 
   next();
 };
+
+customField: Joi.array()
+  .items(
+    Joi.object({
+      name: Joi.string().required(),
+      value: Joi.any().allow(null, ''),
+    })
+  )
+  .optional(),
+
+

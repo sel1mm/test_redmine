@@ -1,0 +1,52 @@
+const parseCustomField = (req, res, next) => {
+  if (req.body.customField && typeof req.body.customField === 'string') {
+    try {
+      const customFieldArray = JSON.parse(req.body.customField);
+      
+      // ✅ Xử lý files đã upload
+      if (req.files && req.files.length > 0) {
+        // Group files theo field name
+        const filesByField = {};
+        req.files.forEach(file => {
+          // Extract field name từ fieldname: "customFieldFile_FieldName"
+          const match = file.fieldname.match(/^customFieldFile_(.+)$/);
+          if (match) {
+            const fieldName = match[1];
+            if (!filesByField[fieldName]) {
+              filesByField[fieldName] = [];
+            }
+            filesByField[fieldName].push({
+              name: file.originalname,
+              filename: file.filename,
+              path: file.path,
+              size: file.size,
+              mimetype: file.mimetype,
+            });
+          }
+        });
+        
+        // ✅ Map files vào customField array
+        customFieldArray.forEach(field => {
+          if (filesByField[field.name]) {
+            const files = filesByField[field.name];
+            // Nếu có nhiều files (multiple upload)
+            if (files.length > 1) {
+              field.value = files;
+            } else {
+              // Single file
+              field.value = files[0];
+            }
+          }
+        });
+      }
+      
+      req.body.customField = customFieldArray;
+      
+    } catch (e) {
+      return res.status(400).json({
+        message: 'customField must be valid JSON',
+      });
+    }
+  }
+  next();
+};

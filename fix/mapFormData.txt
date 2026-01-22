@@ -1,0 +1,78 @@
+const mapFormData = (values) => {
+  const formData = new FormData();
+  console.log('values: ', values);
+  
+  Object.keys(values).forEach((key) => {
+    if (key === 'avatar' && values.avatar) {
+      if (!isEmpty(values.avatar.file) && !isString(values.avatar)) {
+        formData.append('avatar', values.avatar.file.originFileObj);
+      } else if (
+        typeof values.avatar === 'string' &&
+        values.avatar.startsWith('data:image')
+      ) {
+        const contentType = values.avatar.split(';')[0].split(':')[1];
+        const blob = base64ToBlob(values.avatar, contentType);
+        formData.append('avatar', blob);
+      } else {
+        formData.append('avatar', values.avatar);
+      }
+    } else if (key === 'skills') {
+      formData.append('skills', JSON.stringify(values.skills));
+    } else if (key === 'projects') {
+      formData.append('projects', JSON.stringify(values.projects));
+    } else if (key === 'customField') {
+      const customFieldObj = values.customField || {};
+      
+      const customFieldArray = Object.entries(customFieldObj)
+        .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+        .map(([name, value]) => {
+          // ✅ Xử lý date (moment object)
+          if (moment.isMoment(value)) {
+            return { name, value: value.format('YYYY-MM-DD') };
+          }
+          
+          // ✅ Xử lý boolean
+          if (typeof value === 'boolean') {
+            return { name, value: value ? '1' : '0' };
+          }
+          
+          // ✅ Xử lý number
+          if (typeof value === 'number') {
+            return { name, value: String(value) };
+          }
+          
+          // ✅ Xử lý file upload (fileList from Upload component)
+          if (value?.originFileObj) {
+            // Single file
+            formData.append(`customFieldFile_${name}`, value.originFileObj);
+            return { name, value: value.originFileObj.name };
+          }
+          
+          // ✅ Xử lý multiple files
+          if (Array.isArray(value) && value[0]?.originFileObj) {
+            const fileNames = [];
+            value.forEach((file, index) => {
+              formData.append(`customFieldFile_${name}`, file.originFileObj);
+              fileNames.push(file.originFileObj.name);
+            });
+            return { name, value: fileNames };
+          }
+          
+          // ✅ Xử lý các giá trị khác (string, array, etc.)
+          return { name, value: String(value) };
+        });
+
+      if (customFieldArray.length > 0) {
+        formData.append('customField', JSON.stringify(customFieldArray));
+      }
+    } else if (
+      values[key] !== undefined &&
+      values[key] !== null &&
+      typeof values[key] !== 'object'
+    ) {
+      formData.append(key, values[key]);
+    }
+  });
+  
+  return formData;
+};

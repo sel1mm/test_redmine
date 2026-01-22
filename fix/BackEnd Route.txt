@@ -1,0 +1,30 @@
+const multer = require('multer');
+const path = require('path');
+
+// Setup storage cho custom field files
+const customFieldStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.resolve(config.upload.customField)); // Thư mục lưu files
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const uploadCustomFieldFiles = multer({
+  storage: customFieldStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
+
+router.post(
+  '/',
+  authenticate,
+  setCustomCreateUploadPath,
+  uploadImage.single('avatar'),
+  checkImageValidationError,
+  uploadCustomFieldFiles.any(), // ✅ Nhận tất cả files với tên động
+  parseCustomField,
+  validate(employeeValidation.createEmployee),
+  employeeController.create,
+);

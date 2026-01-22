@@ -1,0 +1,99 @@
+import { useState } from 'react';
+import { message } from 'antd';
+
+function CustomizeField() {
+  const { formatMessage } = useIntl();
+  const form = Form.useFormInstance(); // Get form instance
+  
+  // State lưu file objects cho từng attachment field
+  const [uploadedFiles, setUploadedFiles] = useState({});
+
+  const handleFileChange = (fieldName, info) => {
+    const { fileList } = info;
+    
+    // Lưu fileList vào state
+    setUploadedFiles(prev => ({
+      ...prev,
+      [fieldName]: fileList
+    }));
+
+    // Cập nhật form value
+    form.setFieldsValue({
+      customField: {
+        ...form.getFieldValue('customField'),
+        [fieldName]: fileList
+      }
+    });
+  };
+
+  const renderField = (field) => {
+    // ... các field khác giữ nguyên ...
+
+    if (field.field_format === 'attachment') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'field.required',
+                defaultMessage: 'This field is required',
+              }),
+            },
+          ]}
+          valuePropName="fileList"
+          getValueFromEvent={(e) => {
+            if (Array.isArray(e)) {
+              return e;
+            }
+            return e?.fileList;
+          }}
+        >
+          <Upload
+            name={field.name}
+            listType="text"
+            multiple={field.multiple === 1}
+            fileList={uploadedFiles[field.name] || []}
+            onChange={(info) => handleFileChange(field.name, info)}
+            beforeUpload={(file) => {
+              const allowedExtensions = field.format_store?.extensions_allowed
+                ?.split(',')
+                .map((ext) => ext.trim());
+              
+              if (allowedExtensions && allowedExtensions.length > 0) {
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(fileExtension)) {
+                  message.error(
+                    formatMessage({
+                      id: 'field.invalid.extension',
+                      defaultMessage: `Invalid file type. Allowed extensions: ${allowedExtensions.join(', ')}`,
+                    })
+                  );
+                  return Upload.LIST_IGNORE;
+                }
+              }
+              
+              // IMPORTANT: Return false để không tự động upload
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />}>
+              {formatMessage({
+                id: 'field.upload',
+                defaultMessage: 'Click to Upload',
+              })}
+            </Button>
+          </Upload>
+        </Form.Item>
+      );
+    }
+    
+    // ... other field types ...
+  };
+  
+  return (
+    // ... JSX giữ nguyên ...
+  );
+}

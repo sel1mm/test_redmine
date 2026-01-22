@@ -1,0 +1,46 @@
+const renderFieldValue = (field) => {
+  const customFieldArray = detail?.customField || [];
+  const fieldData = customFieldArray.find(item => item.name === field.name);
+  const value = fieldData?.value;
+
+  if (!value && value !== 0 && value !== false) {
+    return '---';
+  }
+
+  switch (field.field_format) {
+    // ... các case khác giữ nguyên ...
+
+    case 'attachment':
+      // ✅ Multiple files
+      if (Array.isArray(value)) {
+        return value.map((file, idx) => (
+          <a 
+            key={idx}
+            href={`${API_HOST}/hrm${file.path}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ marginRight: 8 }}
+          >
+            {file.name}
+          </a>
+        ));
+      }
+      // ✅ Single file (object)
+      if (typeof value === 'object' && value.path) {
+        return (
+          <a 
+            href={`${API_HOST}/hrm${value.path}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            {value.name}
+          </a>
+        );
+      }
+      // ✅ Fallback (string filename)
+      return value || '---';
+
+    default:
+      return value || '---';
+  }
+};

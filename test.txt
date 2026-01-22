@@ -44,4 +44,118 @@ customField: Joi.array()
   )
   .optional(),
 
+const handleFinishSubmission = async () => {
+  try {
+    const fieldsValue = await form.validateFields();
+
+    const customFieldObject = fieldsValue.customField || {};
+
+    const customFieldArray = Object.entries(customFieldObject)
+      .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+      .map(([name, value]) => {
+        // Date
+        if (moment.isMoment(value)) {
+          return { name, value: value.format('YYYY-MM-DD') };
+        }
+
+        // Boolean
+        if (typeof value === 'boolean') {
+          return { name, value: value ? '1' : '0' };
+        }
+
+        // Number
+        if (typeof value === 'number') {
+          return { name, value: String(value) };
+        }
+
+        return { name, value: String(value) };
+      });
+
+    const payload = {
+      ...fieldsValue,
+      customField: customFieldArray,
+      dateOfBirth: fieldsValue.dateOfBirth?.format('YYYY-MM-DD') || null,
+      hireDate: fieldsValue.hireDate?.format('YYYY-MM-DD') || null,
+      endDate: fieldsValue.endDate?.format('YYYY-MM-DD') || null,
+      skills: fieldsValue.skills || [],
+    };
+
+    onSubmit({
+      ...(modalEmployeeData?.id ? { id: modalEmployeeData.id } : {}),
+      ...payload,
+    });
+
+    setIsDirty(false);
+  } catch (e) {
+    console.log('error', e);
+  }
+};
+
+
+<Form.Item
+  label={field.name}
+  name={['customField', field.name]}
+  valuePropName="checked"
+  initialValue={false}
+>
+  <Checkbox />
+</Form.Item>
+
+
+
+const mapCustomFieldToObject = (customField) => {
+  const result = {};
+
+  // Case 1: null / undefined
+  if (!customField) return result;
+
+  // Case 2: backend trả OBJECT (JSONB)
+  if (
+    typeof customField === 'object' &&
+    !Array.isArray(customField)
+  ) {
+    Object.entries(customField).forEach(([name, value]) => {
+      result[name] = normalizeCustomFieldValue(value);
+    });
+    return result;
+  }
+
+  // Case 3: backend trả ARRAY
+  if (Array.isArray(customField)) {
+    customField.forEach(({ name, value }) => {
+      if (!name) return;
+      result[name] = normalizeCustomFieldValue(value);
+    });
+  }
+
+  return result;
+};
+
+
+
+const normalizeCustomFieldValue = (value) => {
+  if (value === '1' || value === '0') {
+    return value === '1';
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (!isNaN(value) && value !== '') {
+    return Number(value);
+  }
+
+  if (
+    typeof value === 'string' &&
+    moment(value, 'YYYY-MM-DD', true).isValid()
+  ) {
+    return moment(value);
+  }
+
+  return value;
+};
+
+
+
 

@@ -157,5 +157,135 @@ const normalizeCustomFieldValue = (value) => {
 };
 
 
+import React, { useEffect, useState } from 'react';
+import { Collapse, Descriptions, Row } from 'antd';
+import { useIntl } from '@toolchain/hook';
+import { IconAtnd } from '@toolchain/component';
+import get from 'lodash/get';
+import moment from 'moment';
+import fieldConfig from './CustomizeField.json';
+import { dateFormat } from '../constants';
+
+const { Panel } = Collapse;
+
+function CustomizeFieldDetail({ detail = {} }) {
+    const { formatMessage } = useIntl();
+
+    const renderFieldValue = (field) => {
+        const value = get(detail, ['customField', field.name]);
+
+        // Nếu không có giá trị
+        if (!value && value !== 0 && value !== false) {
+            return '---';
+        }
+
+        // Xử lý theo từng loại field
+        switch (field.field_format) {
+            case 'string':
+            case 'text':
+            case 'link':
+                return value || '---';
+
+            case 'int':
+            case 'float':
+            case 'progressbar':
+                return value !== undefined && value !== null ? value : '---';
+
+            case 'date':
+                return value ? moment(value).format(dateFormat) : '---';
+
+            case 'bool':
+                return value ? formatMessage({ id: 'app.yes', defaultMessage: 'Yes' }) 
+                             : formatMessage({ id: 'app.no', defaultMessage: 'No' });
+
+            case 'list':
+            case 'version':
+                return Array.isArray(value) ? value.join(', ') : value || '---';
+
+            case 'user':
+                if (Array.isArray(value)) {
+                    return value.map(user => user.name || user).join(', ') || '---';
+                }
+                return value?.name || value || '---';
+
+            case 'enumeration':
+                // Tìm tên tương ứng với id
+                const enumItem = field.possible_values?.find(item => item.id === value);
+                return enumItem?.name || value || '---';
+
+            case 'attachment':
+                if (Array.isArray(value)) {
+                    return value.map(file => file.name || file).join(', ') || '---';
+                }
+                return value?.name || value || '---';
+
+            default:
+                return value || '---';
+        }
+    };
+
+    // Chia fields thành các nhóm 3 (để hiển thị trên 1 row)
+    const fieldsToDisplay = fieldConfig.filter(field => {
+        const value = get(detail, ['customField', field.name]);
+        // Có thể thêm logic để chỉ hiển thị fields có giá trị
+        return true; // Hiển thị tất cả fields
+    });
+
+    return (
+        <Collapse
+            defaultActiveKey={['customize']}
+            className="rounded-collapse"
+            style={{ marginTop: 16 }}
+            expandIcon={({ isActive }) =>
+                isActive ? (
+                    <IconAtnd size={24} type="UpCircleOutlined" />
+                ) : (
+                    <IconAtnd size={24} type="DownCircleOutlined" />
+                )
+            }
+        >
+            <Panel
+                header={formatMessage({
+                    id: 'hrm.employee.detail.customize.information',
+                    defaultMessage: 'Customize Information',
+                })}
+                key="customize"
+                collapsible="header"
+            >
+                <Row className="sector-input-group">
+                    <Descriptions
+                        labelStyle={{ width: 200 }}
+                        contentStyle={{ width: 200 }}
+                        column={{ xs: 1, lg: 3 }}
+                        bordered
+                        style={{ width: '100%' }}
+                    >
+                        {fieldsToDisplay.map((field) => (
+                            <Descriptions.Item
+                                key={field.id}
+                                label={field.name}
+                            >
+                                {renderFieldValue(field)}
+                            </Descriptions.Item>
+                        ))}
+                        
+                        {/* Thêm các item rỗng để căn chỉnh layout nếu số field không chia hết cho 3 */}
+                        {fieldsToDisplay.length % 3 !== 0 && (
+                            Array.from({ length: 3 - (fieldsToDisplay.length % 3) }).map((_, index) => (
+                                <Descriptions.Item key={`empty-${index}`} label="">
+                                    {''}
+                                </Descriptions.Item>
+                            ))
+                        )}
+                    </Descriptions>
+                </Row>
+            </Panel>
+        </Collapse>
+    );
+}
+
+export default CustomizeFieldDetail;
+
+
 
 

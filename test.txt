@@ -163,16 +163,64 @@ import { useIntl } from '@toolchain/hook';
 import { IconAtnd } from '@toolchain/component';
 import get from 'lodash/get';
 import moment from 'moment';
-import fieldConfig from './CustomizeField.json';
+import fieldConfig from '../ModalDetails/FormData/CustomizeField.json';
 import { dateFormat } from '../constants';
 
 const { Panel } = Collapse;
 
+// ✅ Thêm 2 hàm helper
+const normalizeCustomFieldValue = (value) => {
+  if (value === '1' || value === '0') {
+    return value === '1';
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (!isNaN(value) && value !== '') {
+    return Number(value);
+  }
+  if (
+    typeof value === 'string' &&
+    moment(value, 'YYYY-MM-DD', true).isValid()
+  ) {
+    return moment(value);
+  }
+  return value;
+};
+
+const mapCustomFieldToObject = (customField) => {
+  const result = {};
+  // Case 1: null / undefined
+  if (!customField) return result;
+  // Case 2: backend trả OBJECT (JSONB)
+  if (
+    typeof customField === 'object' &&
+    !Array.isArray(customField)
+  ) {
+    Object.entries(customField).forEach(([name, value]) => {
+      result[name] = normalizeCustomFieldValue(value);
+    });
+    return result;
+  }
+  // Case 3: backend trả ARRAY
+  if (Array.isArray(customField)) {
+    customField.forEach(({ name, value }) => {
+      if (!name) return;
+      result[name] = normalizeCustomFieldValue(value);
+    });
+  }
+  return result;
+};
+
 function CustomizeFieldDetail({ detail = {} }) {
     const { formatMessage } = useIntl();
+    
+    // ✅ Xử lý customField data
+    const customFieldData = mapCustomFieldToObject(detail?.customField);
 
     const renderFieldValue = (field) => {
-        const value = get(detail, ['customField', field.name]);
+        // ✅ Lấy value từ customFieldData đã được normalize
+        const value = customFieldData[field.name];
 
         // Nếu không có giá trị
         if (!value && value !== 0 && value !== false) {
@@ -192,7 +240,10 @@ function CustomizeFieldDetail({ detail = {} }) {
                 return value !== undefined && value !== null ? value : '---';
 
             case 'date':
-                return value ? moment(value).format(dateFormat) : '---';
+                // ✅ value đã là moment object từ normalizeCustomFieldValue
+                return moment.isMoment(value) 
+                    ? value.format(dateFormat) 
+                    : (value ? moment(value).format(dateFormat) : '---');
 
             case 'bool':
                 return value ? formatMessage({ id: 'app.yes', defaultMessage: 'Yes' }) 
@@ -226,7 +277,6 @@ function CustomizeFieldDetail({ detail = {} }) {
 
     // Chia fields thành các nhóm 3 (để hiển thị trên 1 row)
     const fieldsToDisplay = fieldConfig.filter(field => {
-        const value = get(detail, ['customField', field.name]);
         // Có thể thêm logic để chỉ hiển thị fields có giá trị
         return true; // Hiển thị tất cả fields
     });
@@ -285,7 +335,4 @@ function CustomizeFieldDetail({ detail = {} }) {
 }
 
 export default CustomizeFieldDetail;
-
-
-
 

@@ -3,45 +3,29 @@ const parseCustomField = (req, res, next) => {
     try {
       const customFieldArray = JSON.parse(req.body.customField);
       
-      // ✅ Xử lý files nếu có
-      if (req.files && req.files.length > 0) {
-        // Group files theo field name
-        const filesByField = {};
+      // ✅ Xử lý files (base64) nếu có
+      customFieldArray.forEach(field => {
+        const value = field.value;
         
-        req.files.forEach(file => {
-          // Extract field name: "customFieldFile_Test File" → "Test File"
-          const match = file.fieldname.match(/^customFieldFile_(.+)$/);
-          if (match) {
-            const fieldName = match[1];
-            if (!filesByField[fieldName]) {
-              filesByField[fieldName] = [];
-            }
-            filesByField[fieldName].push({
-              name: file.originalname,
-              filename: file.filename,
-              path: file.path,
-              size: file.size,
-              mimetype: file.mimetype,
+        // Check nếu là file data (có property 'data' với base64)
+        if (value && typeof value === 'object') {
+          // Single file with base64
+          if (value.data && value.data.startsWith('data:')) {
+            const saved = saveBase64File(value);
+            field.value = saved;
+          }
+          // Multiple files
+          else if (Array.isArray(value)) {
+            field.value = value.map(file => {
+              if (file.data && file.data.startsWith('data:')) {
+                return saveBase64File(file);
+              }
+              // File đã tồn tại, giữ nguyên
+              return file;
             });
           }
-        });
-        
-        // ✅ Map files vào customFieldArray
-        customFieldArray.forEach(field => {
-          if (filesByField[field.name]) {
-            const files = filesByField[field.name];
-            
-            // ✅ Nếu chỉ có 1 file → lưu object
-            if (files.length === 1) {
-              field.value = files[0];
-            } 
-            // ✅ Nếu có nhiều files → lưu array
-            else {
-              field.value = files;
-            }
-          }
-        });
-      }
+        }
+      });
       
       req.body.customField = customFieldArray;
       
@@ -54,4 +38,40 @@ const parseCustomField = (req, res, next) => {
     }
   }
   next();
+};
+
+// ✅ Helper function save base64 to file
+const saveBase64File = (fileData) => {
+  const fs = require('fs');
+  const path = require('path');
+  
+  // Extract base64 data
+  const matches = fileData.data.match(/^data:(.+);base64,(.+)$/);
+  if (!matches) return fileData;
+  
+  const mimeType = matches[1];
+  const base64Data = matches[2];
+  const buffer = Buffer.from(base64Data, 'base64');
+  
+  // Generate filename
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  const ext = mimeType.split('/')[1];
+  const filename = `${uniqueSuffix}-${fileData.name}`;
+  
+  // Save path
+  const uploadDir = path.resolve(config.upload.customField || config.upload.employee);
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  
+  const filePath = path.join(uploadDir, filename);
+  fs.writeFileSync(filePath, buffer);
+  
+  return {
+    name: fileData.name,
+    filename: filename,
+    path: `/uploads/customField/${filename}`,
+    size: fileData.size,
+    mimetype: mimeType,
+  };
 };

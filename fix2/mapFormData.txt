@@ -1,45 +1,82 @@
+// ✅ Helper function convert file to base64
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// Trong mapFormData
 else if (key === 'customField') {
   const customFieldObj = values.customField || {};
-  const fileFields = {}; // Track các field có file
   
-  const customFieldArray = Object.entries(customFieldObj)
-    .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-    .map(([name, value]) => {
-      // ✅ Xử lý date (moment object)
-      if (moment.isMoment(value)) {
-        return { name, value: value.format('YYYY-MM-DD') };
-      }
-      
-      // ✅ Xử lý boolean
-      if (typeof value === 'boolean') {
-        return { name, value: value ? '1' : '0' };
-      }
-      
-      // ✅ Xử lý number
-      if (typeof value === 'number') {
+  // ✅ Process all fields including files
+  const processedFields = await Promise.all(
+    Object.entries(customFieldObj)
+      .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+      .map(async ([name, value]) => {
+        // Xử lý date
+        if (moment.isMoment(value)) {
+          return { name, value: value.format('YYYY-MM-DD') };
+        }
+        
+        // Xử lý boolean
+        if (typeof value === 'boolean') {
+          return { name, value: value ? '1' : '0' };
+        }
+        
+        // Xử lý number
+        if (typeof value === 'number') {
+          return { name, value: String(value) };
+        }
+        
+        // ✅ Xử lý fileList - Convert to base64
+        if (Array.isArray(value) && value.length > 0 && value[0]?.originFileObj) {
+          const filesData = await Promise.all(
+            value.map(async (file) => {
+              // File đã tồn tại (có url/path)
+              if (file.url && !file.originFileObj) {
+                return {
+                  name: file.name,
+                  path: file.path,
+                  url: file.url,
+                  size: file.size,
+                };
+              }
+              
+              // File mới upload - convert to base64
+              if (file.originFileObj) {
+                const base64 = await fileToBase64(file.originFileObj);
+                return {
+                  name: file.name,
+                  data: base64, // Base64 string
+                  size: file.size,
+                  type: file.type,
+                };
+              }
+              
+              return null;
+            })
+          );
+          
+          // Filter null values
+          const validFiles = filesData.filter(f => f !== null);
+          
+          // Single file vs multiple files
+          return { 
+            name, 
+            value: validFiles.length === 1 ? validFiles[0] : validFiles 
+          };
+        }
+        
+        // Các giá trị khác
         return { name, value: String(value) };
-      }
-      
-      // ✅ Xử lý fileList từ Upload component
-      // Không quan tâm single hay multiple, chỉ check có originFileObj không
-      if (Array.isArray(value) && value.length > 0 && value[0]?.originFileObj) {
-        fileFields[name] = value; // Lưu toàn bộ fileList
-        return { name, value: null }; // Placeholder, backend sẽ replace
-      }
-      
-      // ✅ Xử lý các giá trị khác
-      return { name, value: String(value) };
-    });
-
-  // Append customField JSON
-  if (customFieldArray.length > 0) {
-    formData.append('customField', JSON.stringify(customFieldArray));
-  }
+      })
+  );
   
-  // ✅ Append tất cả files với field name
-  Object.entries(fileFields).forEach(([fieldName, fileList]) => {
-    fileList.forEach((file) => {
-      formData.append(`customFieldFile_${fieldName}`, file.originFileObj);
-    });
-  });
+  if (processedFields.length > 0) {
+    formData.append('customField', JSON.stringify(processedFields));
+  }
 }

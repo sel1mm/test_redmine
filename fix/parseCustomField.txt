@@ -1,52 +1,60 @@
 const parseCustomField = (req, res, next) => {
-  if (req.body.customField && typeof req.body.customField === 'string') {
-    try {
-      const customFieldArray = JSON.parse(req.body.customField);
+  try {
+    // ✅ Tách avatar và custom files
+    if (req.files && Array.isArray(req.files)) {
+      const avatarFile = req.files.find(f => f.fieldname === 'avatar');
+      const customFiles = req.files.filter(f => f.fieldname.startsWith('customFieldFile_'));
       
-      // ✅ Xử lý files đã upload
-      if (req.files && req.files.length > 0) {
-        // Group files theo field name
-        const filesByField = {};
-        req.files.forEach(file => {
-          // Extract field name từ fieldname: "customFieldFile_FieldName"
-          const match = file.fieldname.match(/^customFieldFile_(.+)$/);
-          if (match) {
-            const fieldName = match[1];
-            if (!filesByField[fieldName]) {
-              filesByField[fieldName] = [];
-            }
-            filesByField[fieldName].push({
-              name: file.originalname,
-              filename: file.filename,
-              path: file.path,
-              size: file.size,
-              mimetype: file.mimetype,
-            });
-          }
-        });
-        
-        // ✅ Map files vào customField array
-        customFieldArray.forEach(field => {
-          if (filesByField[field.name]) {
-            const files = filesByField[field.name];
-            // Nếu có nhiều files (multiple upload)
-            if (files.length > 1) {
-              field.value = files;
-            } else {
-              // Single file
-              field.value = files[0];
-            }
-          }
-        });
+      // Set avatar
+      if (avatarFile) {
+        req.file = avatarFile;
       }
       
-      req.body.customField = customFieldArray;
-      
-    } catch (e) {
-      return res.status(400).json({
-        message: 'customField must be valid JSON',
-      });
+      // Xử lý customField
+      if (req.body.customField && typeof req.body.customField === 'string') {
+        const customFieldArray = JSON.parse(req.body.customField);
+        
+        if (customFiles.length > 0) {
+          const filesByFieldName = {};
+          
+          customFiles.forEach(file => {
+            const match = file.fieldname.match(/^customFieldFile_(.+)$/);
+            if (match) {
+              const fieldName = match[1];
+              filesByFieldName[fieldName] = {
+                name: file.originalname,
+                filename: file.filename,
+                path: file.path,
+                size: file.size,
+                mimetype: file.mimetype,
+              };
+            }
+          });
+          
+          customFieldArray.forEach(field => {
+            if (field.value === '__FILE_UPLOADED__' && filesByFieldName[field.name]) {
+              field.value = filesByFieldName[field.name].path;
+            }
+          });
+        }
+        
+        req.body.customField = customFieldArray;
+      }
     }
+    
+    // ✅ XÓA tất cả customFieldFile_* khỏi req.body
+    Object.keys(req.body).forEach(key => {
+      if (key.startsWith('customFieldFile_')) {
+        delete req.body[key];
+      }
+    });
+    
+    next();
+  } catch (e) {
+    console.error('parseCustomField error:', e);
+    return res.status(400).json({
+      message: 'Invalid customField format',
+      error: e.message,
+    });
   }
-  next();
 };

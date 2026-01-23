@@ -1,77 +1,36 @@
 const parseCustomField = (req, res, next) => {
-  if (req.body.customField && typeof req.body.customField === 'string') {
-    try {
+  try {
+    if (req.body.customField) {
       const customFieldArray = JSON.parse(req.body.customField);
+      const fileMetadata = req.body.fileMetadata ? JSON.parse(req.body.fileMetadata) : [];
       
-      // ✅ Xử lý files (base64) nếu có
-      customFieldArray.forEach(field => {
-        const value = field.value;
-        
-        // Check nếu là file data (có property 'data' với base64)
-        if (value && typeof value === 'object') {
-          // Single file with base64
-          if (value.data && value.data.startsWith('data:')) {
-            const saved = saveBase64File(value);
-            field.value = saved;
+      // Map uploaded files
+      if (req.files && req.files.length > 0) {
+        customFieldArray.forEach(field => {
+          if (field.value === '__FILE_METADATA__') {
+            const fieldFiles = fileMetadata
+              .filter(meta => meta.fieldName === field.name && !meta.existing)
+              .map((meta, idx) => ({
+                name: req.files[idx].originalname,
+                filename: req.files[idx].filename,
+                path: req.files[idx].path,
+                size: req.files[idx].size,
+                mimetype: req.files[idx].mimetype,
+              }));
+            
+            const existingFiles = fileMetadata.filter(meta => meta.fieldName === field.name && meta.existing);
+            const allFiles = [...existingFiles, ...fieldFiles];
+            
+            field.value = allFiles.length === 1 ? allFiles[0] : allFiles;
+            delete field.fileCount;
           }
-          // Multiple files
-          else if (Array.isArray(value)) {
-            field.value = value.map(file => {
-              if (file.data && file.data.startsWith('data:')) {
-                return saveBase64File(file);
-              }
-              // File đã tồn tại, giữ nguyên
-              return file;
-            });
-          }
-        }
-      });
+        });
+      }
       
       req.body.customField = customFieldArray;
-      
-    } catch (e) {
-      console.error('parseCustomField error:', e);
-      return res.status(400).json({
-        message: 'customField must be valid JSON',
-        error: e.message,
-      });
     }
+    next();
+  } catch (e) {
+    next(e);
   }
-  next();
-};
-
-// ✅ Helper function save base64 to file
-const saveBase64File = (fileData) => {
-  const fs = require('fs');
-  const path = require('path');
-  
-  // Extract base64 data
-  const matches = fileData.data.match(/^data:(.+);base64,(.+)$/);
-  if (!matches) return fileData;
-  
-  const mimeType = matches[1];
-  const base64Data = matches[2];
-  const buffer = Buffer.from(base64Data, 'base64');
-  
-  // Generate filename
-  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-  const ext = mimeType.split('/')[1];
-  const filename = `${uniqueSuffix}-${fileData.name}`;
-  
-  // Save path
-  const uploadDir = path.resolve(config.upload.customField || config.upload.employee);
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-  
-  const filePath = path.join(uploadDir, filename);
-  fs.writeFileSync(filePath, buffer);
-  
-  return {
-    name: fileData.name,
-    filename: filename,
-    path: `/uploads/customField/${filename}`,
-    size: fileData.size,
-    mimetype: mimeType,
-  };
 };

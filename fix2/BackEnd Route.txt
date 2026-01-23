@@ -30,14 +30,13 @@ const uploadCustomFieldFiles = multer({
   }
 });
 
-// ✅ Route
 router.post(
   '/',
   authenticate,
   setCustomCreateUploadPath,
   uploadImage.single('avatar'),
   checkImageValidationError,
-  uploadCustomFieldFiles.any(), // ✅ Accept tất cả files
+  uploadFiles.array('customFieldFiles', 10), // ✅ Nhận files
   parseCustomField,
   validate(employeeValidation.createEmployee),
   employeeController.create,

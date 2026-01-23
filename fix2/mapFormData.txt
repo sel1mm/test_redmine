@@ -1,82 +1,95 @@
-// ✅ Helper function convert file to base64
-const fileToBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
-
-// Trong mapFormData
-else if (key === 'customField') {
-  const customFieldObj = values.customField || {};
+const mapFormData = (values) => {
+  const formData = new FormData();
+  console.log('values: ', values);
   
-  // ✅ Process all fields including files
-  const processedFields = await Promise.all(
-    Object.entries(customFieldObj)
-      .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-      .map(async ([name, value]) => {
-        // Xử lý date
-        if (moment.isMoment(value)) {
-          return { name, value: value.format('YYYY-MM-DD') };
-        }
-        
-        // Xử lý boolean
-        if (typeof value === 'boolean') {
-          return { name, value: value ? '1' : '0' };
-        }
-        
-        // Xử lý number
-        if (typeof value === 'number') {
-          return { name, value: String(value) };
-        }
-        
-        // ✅ Xử lý fileList - Convert to base64
-        if (Array.isArray(value) && value.length > 0 && value[0]?.originFileObj) {
-          const filesData = await Promise.all(
-            value.map(async (file) => {
-              // File đã tồn tại (có url/path)
-              if (file.url && !file.originFileObj) {
-                return {
+  Object.keys(values).forEach((key) => {
+    if (key === 'avatar' && values.avatar) {
+      // ... xử lý avatar như cũ
+    } else if (key === 'skills') {
+      formData.append('skills', JSON.stringify(values.skills));
+    } else if (key === 'projects') {
+      formData.append('projects', JSON.stringify(values.projects));
+    } else if (key === 'customField') {
+      const customFieldObj = values.customField || {};
+      const customFieldArray = [];
+      
+      Object.entries(customFieldObj)
+        .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+        .forEach(([name, value]) => {
+          // Xử lý date
+          if (moment.isMoment(value)) {
+            customFieldArray.push({ name, value: value.format('YYYY-MM-DD') });
+            return;
+          }
+          
+          // Xử lý boolean
+          if (typeof value === 'boolean') {
+            customFieldArray.push({ name, value: value ? '1' : '0' });
+            return;
+          }
+          
+          // Xử lý number
+          if (typeof value === 'number') {
+            customFieldArray.push({ name, value: String(value) });
+            return;
+          }
+          
+          // ✅ Xử lý fileList - Append files trực tiếp vào FormData
+          if (Array.isArray(value) && value.length > 0 && value[0]?.originFileObj) {
+            const fileMetadata = [];
+            
+            value.forEach((file, index) => {
+              if (file.originFileObj) {
+                // Append file vào FormData
+                formData.append('customFieldFiles', file.originFileObj);
+                fileMetadata.push({
+                  name: file.name,
+                  size: file.size,
+                  type: file.type,
+                  fieldName: name,
+                  index: index
+                });
+              } else if (file.url) {
+                // File đã tồn tại
+                fileMetadata.push({
                   name: file.name,
                   path: file.path,
                   url: file.url,
                   size: file.size,
-                };
+                  fieldName: name,
+                  existing: true
+                });
               }
-              
-              // File mới upload - convert to base64
-              if (file.originFileObj) {
-                const base64 = await fileToBase64(file.originFileObj);
-                return {
-                  name: file.name,
-                  data: base64, // Base64 string
-                  size: file.size,
-                  type: file.type,
-                };
-              }
-              
-              return null;
-            })
-          );
+            });
+            
+            customFieldArray.push({ name, value: '__FILE_METADATA__', fileCount: fileMetadata.length });
+            
+            // Lưu metadata riêng
+            if (!formData.has('fileMetadata')) {
+              formData.append('fileMetadata', JSON.stringify([]));
+            }
+            const currentMeta = JSON.parse(formData.get('fileMetadata') || '[]');
+            currentMeta.push(...fileMetadata);
+            formData.set('fileMetadata', JSON.stringify(currentMeta));
+            
+            return;
+          }
           
-          // Filter null values
-          const validFiles = filesData.filter(f => f !== null);
-          
-          // Single file vs multiple files
-          return { 
-            name, 
-            value: validFiles.length === 1 ? validFiles[0] : validFiles 
-          };
-        }
-        
-        // Các giá trị khác
-        return { name, value: String(value) };
-      })
-  );
+          // Các giá trị khác
+          customFieldArray.push({ name, value: String(value) });
+        });
+      
+      if (customFieldArray.length > 0) {
+        formData.append('customField', JSON.stringify(customFieldArray));
+      }
+    } else if (
+      values[key] !== undefined &&
+      values[key] !== null &&
+      typeof values[key] !== 'object'
+    ) {
+      formData.append(key, values[key]);
+    }
+  });
   
-  if (processedFields.length > 0) {
-    formData.append('customField', JSON.stringify(processedFields));
-  }
-}
+  return formData;
+};

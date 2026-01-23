@@ -1,0 +1,43 @@
+else if (key === 'customField') {
+  const customFieldArray = [];
+
+  Object.entries(values.customField || {}).forEach(([name, value]) => {
+    if (!value) return;
+
+    // DATE
+    if (moment.isMoment(value)) {
+      customFieldArray.push({ name, value: value.format('YYYY-MM-DD') });
+      return;
+    }
+
+    // BOOLEAN
+    if (typeof value === 'boolean') {
+      customFieldArray.push({ name, value: value ? '1' : '0' });
+      return;
+    }
+
+    // NUMBER
+    if (typeof value === 'number') {
+      customFieldArray.push({ name, value: String(value) });
+      return;
+    }
+
+    // FILE (Upload component)
+    if (Array.isArray(value) && value[0]?.originFileObj) {
+      const file = value[0].originFileObj;
+
+      formData.append('customFieldFiles', file);
+      customFieldArray.push({
+        name,
+        value: file.name, // map với backend
+      });
+      return;
+    }
+
+    customFieldArray.push({ name, value: String(value) });
+  });
+
+  if (customFieldArray.length) {
+    formData.append('customField', JSON.stringify(customFieldArray));
+  }
+}

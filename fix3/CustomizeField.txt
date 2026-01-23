@@ -1,0 +1,19 @@
+<Form.Item
+  label={field.name}
+  name={['customField', field.name]}
+  valuePropName="fileList"
+  getValueFromEvent={(e) => {
+    if (Array.isArray(e)) return e;
+    return e?.fileList;
+  }}
+>
+  <Upload
+    maxCount={1}
+    beforeUpload={() => false}
+    listType="text"
+  >
+    <Button icon={<UploadOutlined />}>
+      Click to Upload
+    </Button>
+  </Upload>
+</Form.Item>

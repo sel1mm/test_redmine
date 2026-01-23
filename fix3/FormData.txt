@@ -1,0 +1,15 @@
+const normalizeCustomFieldValue = (value) => {
+  // FILE
+  if (typeof value === 'string' && value.startsWith('/static/')) {
+    return [
+      {
+        uid: '-1',
+        name: value.split('/').pop(),
+        status: 'done',
+        url: value,
+      },
+    ];
+  }
+
+  return value;
+};

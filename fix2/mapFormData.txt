@@ -1,69 +1,61 @@
-const mapFormData = (values) => {
-  const formData = new FormData();
-  console.log('values: ', values);
-  
-  Object.keys(values).forEach((key) => {
-    if (key === 'avatar' && values.avatar) {
-      if (!isEmpty(values.avatar.file) && !isString(values.avatar)) {
-        formData.append('avatar', values.avatar.file.originFileObj);
-      } else if (
-        typeof values.avatar === 'string' &&
-        values.avatar.startsWith('data:image')
-      ) {
-        const contentType = values.avatar.split(';')[0].split(':')[1];
-        const blob = base64ToBlob(values.avatar, contentType);
-        formData.append('avatar', blob);
-      } else {
-        formData.append('avatar', values.avatar);
-      }
-    } else if (key === 'skills') {
-      formData.append('skills', JSON.stringify(values.skills));
-    } else if (key === 'projects') {
-      formData.append('projects', JSON.stringify(values.projects));
-    } else if (key === 'customField') {
-      const customFieldObj = values.customField || {};
-      
-      const customFieldArray = Object.entries(customFieldObj)
-        .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-        .map(([name, value]) => {
-          // Xử lý date
-          if (moment.isMoment(value)) {
-            return { name, value: value.format('YYYY-MM-DD') };
-          }
-          
-          // Xử lý boolean
-          if (typeof value === 'boolean') {
-            return { name, value: value ? '1' : '0' };
-          }
-          
-          // Xử lý number
-          if (typeof value === 'number') {
-            return { name, value: String(value) };
-          }
-          
-          // ✅ Xử lý file base64 GIỐNG AVATAR
-          if (typeof value === 'string' && value.startsWith('data:')) {
-            const contentType = value.split(';')[0].split(':')[1];
-            const blob = base64ToBlob(value, contentType);
-            formData.append(`customFieldFile_${name}`, blob, `${name}.${contentType.split('/')[1]}`);
-            return { name, value: '__FILE_UPLOADED__' }; // Placeholder
-          }
-          
-          // Các giá trị khác
-          return { name, value: String(value) };
-        });
+} else if (key === 'customField') {
+  const customFieldObj = values.customField || {};
 
-      if (customFieldArray.length > 0) {
-        formData.append('customField', JSON.stringify(customFieldArray));
-      }
-    } else if (
-      values[key] !== undefined &&
-      values[key] !== null &&
-      typeof values[key] !== 'object'
-    ) {
-      formData.append(key, values[key]);
+  const customFieldArray = [];
+
+  Object.entries(customFieldObj).forEach(([name, value]) => {
+    if (value === undefined || value === null || value === '') return;
+
+    // 📌 DATE
+    if (moment.isMoment(value)) {
+      customFieldArray.push({
+        name,
+        value: value.format('YYYY-MM-DD'),
+      });
+      return;
     }
+
+    // 📌 BOOLEAN
+    if (typeof value === 'boolean') {
+      customFieldArray.push({
+        name,
+        value: value ? '1' : '0',
+      });
+      return;
+    }
+
+    // 📌 NUMBER
+    if (typeof value === 'number') {
+      customFieldArray.push({
+        name,
+        value: String(value),
+      });
+      return;
+    }
+
+    // 📌 FILE (UPLOAD GIỐNG AVATAR)
+    if (Array.isArray(value) && value[0]?.originFileObj) {
+      const file = value[0].originFileObj;
+
+      // append file riêng
+      formData.append(`customFieldFiles`, file);
+
+      // placeholder – backend sẽ map lại
+      customFieldArray.push({
+        name,
+        value: file.name, // backend sẽ replace bằng path
+      });
+      return;
+    }
+
+    // 📌 STRING
+    customFieldArray.push({
+      name,
+      value: String(value),
+    });
   });
-  
-  return formData;
-};
+
+  if (customFieldArray.length > 0) {
+    formData.append('customField', JSON.stringify(customFieldArray));
+  }
+}

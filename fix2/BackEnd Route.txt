@@ -34,10 +34,13 @@ router.post(
   '/',
   authenticate,
   setCustomCreateUploadPath,
-  uploadImage.single('avatar'),
+  uploadImage.fields([
+  { name: 'avatar', maxCount: 1 },
+  { name: 'customFieldFiles', maxCount: 10 },
+]),
+,
   checkImageValidationError,
-  uploadImage.any(), // ✅ Nhận tất cả files còn lại (customFieldFile_*)
-  parseCustomField,
+  uploadImage.any(),   parseCustomField,
   validate(employeeValidation.createEmployee),
   employeeController.create,
 );

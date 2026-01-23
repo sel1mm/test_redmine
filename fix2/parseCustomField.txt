@@ -1,44 +1,42 @@
+const path = require('path');
+const { getPublicPath } = require('../utils/path.util');
+
 const parseCustomField = (req, res, next) => {
+  // 1️⃣ Parse JSON như hiện tại
   if (req.body.customField && typeof req.body.customField === 'string') {
     try {
-      const customFieldArray = JSON.parse(req.body.customField);
-      
-      // ✅ Xử lý files giống avatar
-      if (req.files && req.files.length > 0) {
-        const filesByFieldName = {};
-        
-        req.files.forEach(file => {
-          // Extract field name: "customFieldFile_Test File" → "Test File"
-          const match = file.fieldname.match(/^customFieldFile_(.+)$/);
-          if (match) {
-            const fieldName = match[1];
-            filesByFieldName[fieldName] = {
-              name: file.originalname,
-              filename: file.filename,
-              path: file.path,
-              size: file.size,
-              mimetype: file.mimetype,
-            };
-          }
-        });
-        
-        // Map files vào customFieldArray
-        customFieldArray.forEach(field => {
-          if (field.value === '__FILE_UPLOADED__' && filesByFieldName[field.name]) {
-            field.value = filesByFieldName[field.name].path; // Lưu path giống avatar
-          }
-        });
-      }
-      
-      req.body.customField = customFieldArray;
-      
+      req.body.customField = JSON.parse(req.body.customField);
     } catch (e) {
-      console.error('parseCustomField error:', e);
       return res.status(400).json({
         message: 'customField must be valid JSON',
-        error: e.message,
       });
     }
   }
+
+  // 2️⃣ Nếu không có customField hoặc không phải array → skip
+  if (!Array.isArray(req.body.customField)) {
+    return next();
+  }
+
+  // 3️⃣ Nếu có file upload cho customField
+  if (req.files && req.files.customFieldFiles) {
+    req.files.customFieldFiles.forEach((file) => {
+      // tìm field tương ứng theo originalname
+      const field = req.body.customField.find(
+        (f) => f.value === file.originalname
+      );
+
+      if (field) {
+        // map sang public path (giống avatar)
+        field.value = path.join(
+          getPublicPath('uploads'),
+          file.filename
+        );
+      }
+    });
+  }
+
   next();
 };
+
+module.exports = { parseCustomField };

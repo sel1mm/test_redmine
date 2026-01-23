@@ -1,0 +1,45 @@
+else if (key === 'customField') {
+  const customFieldObj = values.customField || {};
+  const fileFields = {}; // Track các field có file
+  
+  const customFieldArray = Object.entries(customFieldObj)
+    .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    .map(([name, value]) => {
+      // ✅ Xử lý date (moment object)
+      if (moment.isMoment(value)) {
+        return { name, value: value.format('YYYY-MM-DD') };
+      }
+      
+      // ✅ Xử lý boolean
+      if (typeof value === 'boolean') {
+        return { name, value: value ? '1' : '0' };
+      }
+      
+      // ✅ Xử lý number
+      if (typeof value === 'number') {
+        return { name, value: String(value) };
+      }
+      
+      // ✅ Xử lý fileList từ Upload component
+      // Không quan tâm single hay multiple, chỉ check có originFileObj không
+      if (Array.isArray(value) && value.length > 0 && value[0]?.originFileObj) {
+        fileFields[name] = value; // Lưu toàn bộ fileList
+        return { name, value: null }; // Placeholder, backend sẽ replace
+      }
+      
+      // ✅ Xử lý các giá trị khác
+      return { name, value: String(value) };
+    });
+
+  // Append customField JSON
+  if (customFieldArray.length > 0) {
+    formData.append('customField', JSON.stringify(customFieldArray));
+  }
+  
+  // ✅ Append tất cả files với field name
+  Object.entries(fileFields).forEach(([fieldName, fileList]) => {
+    fileList.forEach((file) => {
+      formData.append(`customFieldFile_${fieldName}`, file.originFileObj);
+    });
+  });
+}

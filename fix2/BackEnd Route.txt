@@ -36,7 +36,7 @@ router.post(
   setCustomCreateUploadPath,
   uploadImage.single('avatar'),
   checkImageValidationError,
-  uploadFiles.array('customFieldFiles', 10), // ✅ Nhận files
+  uploadImage.any(), // ✅ Nhận tất cả files còn lại (customFieldFile_*)
   parseCustomField,
   validate(employeeValidation.createEmployee),
   employeeController.create,

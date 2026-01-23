@@ -1,36 +1,44 @@
 const parseCustomField = (req, res, next) => {
-  try {
-    if (req.body.customField) {
+  if (req.body.customField && typeof req.body.customField === 'string') {
+    try {
       const customFieldArray = JSON.parse(req.body.customField);
-      const fileMetadata = req.body.fileMetadata ? JSON.parse(req.body.fileMetadata) : [];
       
-      // Map uploaded files
+      // ✅ Xử lý files giống avatar
       if (req.files && req.files.length > 0) {
+        const filesByFieldName = {};
+        
+        req.files.forEach(file => {
+          // Extract field name: "customFieldFile_Test File" → "Test File"
+          const match = file.fieldname.match(/^customFieldFile_(.+)$/);
+          if (match) {
+            const fieldName = match[1];
+            filesByFieldName[fieldName] = {
+              name: file.originalname,
+              filename: file.filename,
+              path: file.path,
+              size: file.size,
+              mimetype: file.mimetype,
+            };
+          }
+        });
+        
+        // Map files vào customFieldArray
         customFieldArray.forEach(field => {
-          if (field.value === '__FILE_METADATA__') {
-            const fieldFiles = fileMetadata
-              .filter(meta => meta.fieldName === field.name && !meta.existing)
-              .map((meta, idx) => ({
-                name: req.files[idx].originalname,
-                filename: req.files[idx].filename,
-                path: req.files[idx].path,
-                size: req.files[idx].size,
-                mimetype: req.files[idx].mimetype,
-              }));
-            
-            const existingFiles = fileMetadata.filter(meta => meta.fieldName === field.name && meta.existing);
-            const allFiles = [...existingFiles, ...fieldFiles];
-            
-            field.value = allFiles.length === 1 ? allFiles[0] : allFiles;
-            delete field.fileCount;
+          if (field.value === '__FILE_UPLOADED__' && filesByFieldName[field.name]) {
+            field.value = filesByFieldName[field.name].path; // Lưu path giống avatar
           }
         });
       }
       
       req.body.customField = customFieldArray;
+      
+    } catch (e) {
+      console.error('parseCustomField error:', e);
+      return res.status(400).json({
+        message: 'customField must be valid JSON',
+        error: e.message,
+      });
     }
-    next();
-  } catch (e) {
-    next(e);
   }
+  next();
 };

@@ -4,81 +4,55 @@ const mapFormData = (values) => {
   
   Object.keys(values).forEach((key) => {
     if (key === 'avatar' && values.avatar) {
-      // ... xử lý avatar như cũ
+      if (!isEmpty(values.avatar.file) && !isString(values.avatar)) {
+        formData.append('avatar', values.avatar.file.originFileObj);
+      } else if (
+        typeof values.avatar === 'string' &&
+        values.avatar.startsWith('data:image')
+      ) {
+        const contentType = values.avatar.split(';')[0].split(':')[1];
+        const blob = base64ToBlob(values.avatar, contentType);
+        formData.append('avatar', blob);
+      } else {
+        formData.append('avatar', values.avatar);
+      }
     } else if (key === 'skills') {
       formData.append('skills', JSON.stringify(values.skills));
     } else if (key === 'projects') {
       formData.append('projects', JSON.stringify(values.projects));
     } else if (key === 'customField') {
       const customFieldObj = values.customField || {};
-      const customFieldArray = [];
       
-      Object.entries(customFieldObj)
+      const customFieldArray = Object.entries(customFieldObj)
         .filter(([_, v]) => v !== undefined && v !== null && v !== '')
-        .forEach(([name, value]) => {
+        .map(([name, value]) => {
           // Xử lý date
           if (moment.isMoment(value)) {
-            customFieldArray.push({ name, value: value.format('YYYY-MM-DD') });
-            return;
+            return { name, value: value.format('YYYY-MM-DD') };
           }
           
           // Xử lý boolean
           if (typeof value === 'boolean') {
-            customFieldArray.push({ name, value: value ? '1' : '0' });
-            return;
+            return { name, value: value ? '1' : '0' };
           }
           
           // Xử lý number
           if (typeof value === 'number') {
-            customFieldArray.push({ name, value: String(value) });
-            return;
+            return { name, value: String(value) };
           }
           
-          // ✅ Xử lý fileList - Append files trực tiếp vào FormData
-          if (Array.isArray(value) && value.length > 0 && value[0]?.originFileObj) {
-            const fileMetadata = [];
-            
-            value.forEach((file, index) => {
-              if (file.originFileObj) {
-                // Append file vào FormData
-                formData.append('customFieldFiles', file.originFileObj);
-                fileMetadata.push({
-                  name: file.name,
-                  size: file.size,
-                  type: file.type,
-                  fieldName: name,
-                  index: index
-                });
-              } else if (file.url) {
-                // File đã tồn tại
-                fileMetadata.push({
-                  name: file.name,
-                  path: file.path,
-                  url: file.url,
-                  size: file.size,
-                  fieldName: name,
-                  existing: true
-                });
-              }
-            });
-            
-            customFieldArray.push({ name, value: '__FILE_METADATA__', fileCount: fileMetadata.length });
-            
-            // Lưu metadata riêng
-            if (!formData.has('fileMetadata')) {
-              formData.append('fileMetadata', JSON.stringify([]));
-            }
-            const currentMeta = JSON.parse(formData.get('fileMetadata') || '[]');
-            currentMeta.push(...fileMetadata);
-            formData.set('fileMetadata', JSON.stringify(currentMeta));
-            
-            return;
+          // ✅ Xử lý file base64 GIỐNG AVATAR
+          if (typeof value === 'string' && value.startsWith('data:')) {
+            const contentType = value.split(';')[0].split(':')[1];
+            const blob = base64ToBlob(value, contentType);
+            formData.append(`customFieldFile_${name}`, blob, `${name}.${contentType.split('/')[1]}`);
+            return { name, value: '__FILE_UPLOADED__' }; // Placeholder
           }
           
           // Các giá trị khác
-          customFieldArray.push({ name, value: String(value) });
+          return { name, value: String(value) };
         });
-      
+
       if (customFieldArray.length > 0) {
         formData.append('customField', JSON.stringify(customFieldArray));
       }

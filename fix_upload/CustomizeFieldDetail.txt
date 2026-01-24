@@ -1,0 +1,32 @@
+const renderFieldValue = (field) => {
+  const customFieldArray = detail?.customField || [];
+  const fieldData = customFieldArray.find(item => item.name === field.name);
+  const value = fieldData?.value;
+
+  if (!value && value !== 0 && value !== false) {
+    return '---';
+  }
+
+  switch (field.field_format) {
+    // ... other cases ...
+
+    case 'attachment':
+      // ✅ File path (string)
+      if (typeof value === 'string' && value.startsWith('/uploads')) {
+        const fileName = value.split('/').pop();
+        return (
+          <a 
+            href={`${API_HOST}/hrm${value}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            {fileName}
+          </a>
+        );
+      }
+      return '---';
+
+    default:
+      return value || '---';
+  }
+};

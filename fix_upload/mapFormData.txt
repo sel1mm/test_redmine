@@ -1,0 +1,90 @@
+const mapFormData = (values) => {
+  const formData = new FormData();
+  console.log('values: ', values);
+  
+  Object.keys(values).forEach((key) => {
+    if (key === 'avatar' && values.avatar) {
+      if (!isEmpty(values.avatar.file) && !isString(values.avatar)) {
+        formData.append('avatar', values.avatar.file.originFileObj);
+      } else if (
+        typeof values.avatar === 'string' &&
+        values.avatar.startsWith('data:image')
+      ) {
+        const contentType = values.avatar.split(';')[0].split(':')[1];
+        const blob = base64ToBlob(values.avatar, contentType);
+        formData.append('avatar', blob);
+      } else {
+        formData.append('avatar', values.avatar);
+      }
+    } else if (key === 'skills') {
+      formData.append('skills', JSON.stringify(values.skills));
+    } else if (key === 'projects') {
+      formData.append('projects', JSON.stringify(values.projects));
+    } else if (key === 'customField') {
+      const customFieldObj = values.customField || {};
+      
+      // ✅ Step 1: Tạo customField array và track files
+      const customFieldArray = [];
+      const filesToUpload = {};
+      
+      Object.entries(customFieldObj)
+        .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+        .forEach(([name, value]) => {
+          // Xử lý date
+          if (moment.isMoment(value)) {
+            customFieldArray.push({ name, value: value.format('YYYY-MM-DD') });
+            return;
+          }
+          
+          // Xử lý boolean
+          if (typeof value === 'boolean') {
+            customFieldArray.push({ name, value: value ? '1' : '0' });
+            return;
+          }
+          
+          // Xử lý number
+          if (typeof value === 'number') {
+            customFieldArray.push({ name, value: String(value) });
+            return;
+          }
+          
+          // ✅ Xử lý file base64 (GIỐNG AVATAR)
+          if (typeof value === 'string' && value.startsWith('data:')) {
+            customFieldArray.push({ name, value: '__FILE_UPLOADED__' });
+            filesToUpload[name] = value; // Lưu để append sau
+            return;
+          }
+          
+          // ✅ File đã tồn tại (path từ server) - giữ nguyên
+          if (typeof value === 'string' && value.startsWith('/uploads')) {
+            customFieldArray.push({ name, value });
+            return;
+          }
+          
+          // Các giá trị khác
+          customFieldArray.push({ name, value: String(value) });
+        });
+
+      // ✅ Step 2: Append customField JSON
+      if (customFieldArray.length > 0) {
+        formData.append('customField', JSON.stringify(customFieldArray));
+      }
+      
+      // ✅ Step 3: Append files (GIỐNG AVATAR)
+      Object.entries(filesToUpload).forEach(([name, base64]) => {
+        const contentType = base64.split(';')[0].split(':')[1];
+        const blob = base64ToBlob(base64, contentType);
+        const ext = contentType.split('/')[1];
+        formData.append(`customFieldFile_${name}`, blob, `${name}.${ext}`);
+      });
+    } else if (
+      values[key] !== undefined &&
+      values[key] !== null &&
+      typeof values[key] !== 'object'
+    ) {
+      formData.append(key, values[key]);
+    }
+  });
+  
+  return formData;
+};

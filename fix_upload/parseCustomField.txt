@@ -1,0 +1,63 @@
+const parseCustomField = (req, res, next) => {
+  try {
+    // ✅ Tách avatar và custom files
+    if (req.files && Array.isArray(req.files)) {
+      const avatarFile = req.files.find(f => f.fieldname === 'avatar');
+      const customFiles = req.files.filter(f => f.fieldname.startsWith('customFieldFile_'));
+      
+      // Set avatar cho checkImageValidationError
+      if (avatarFile) {
+        req.file = avatarFile;
+      }
+      
+      // ✅ Xử lý customField
+      if (req.body.customField && typeof req.body.customField === 'string') {
+        const customFieldArray = JSON.parse(req.body.customField);
+        
+        if (customFiles.length > 0) {
+          const filesByFieldName = {};
+          
+          customFiles.forEach(file => {
+            // Extract field name: "customFieldFile_Test File" → "Test File"
+            const match = file.fieldname.match(/^customFieldFile_(.+)$/);
+            if (match) {
+              const fieldName = match[1];
+              filesByFieldName[fieldName] = {
+                name: file.originalname,
+                filename: file.filename,
+                path: file.path,
+                size: file.size,
+                mimetype: file.mimetype,
+              };
+            }
+          });
+          
+          // ✅ Map files vào customFieldArray (GIỐNG AVATAR)
+          customFieldArray.forEach(field => {
+            if (field.value === '__FILE_UPLOADED__' && filesByFieldName[field.name]) {
+              // ✅ Lưu path giống avatar
+              field.value = filesByFieldName[field.name].path;
+            }
+          });
+        }
+        
+        req.body.customField = customFieldArray;
+      }
+    }
+    
+    // ✅ XÓA tất cả customFieldFile_* khỏi req.body (nếu có)
+    Object.keys(req.body).forEach(key => {
+      if (key.startsWith('customFieldFile_')) {
+        delete req.body[key];
+      }
+    });
+    
+    next();
+  } catch (e) {
+    console.error('parseCustomField error:', e);
+    return res.status(400).json({
+      message: 'Invalid customField format',
+      error: e.message,
+    });
+  }
+};

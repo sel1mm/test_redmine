@@ -1,0 +1,161 @@
+import React, { useState } from 'react';
+import { Upload, Button, message, Image } from 'antd';
+import { UploadOutlined, PlusOutlined } from '@ant-design/icons';
+
+function CustomizeField() {
+  const { formatMessage } = useIntl();
+  const form = Form.useFormInstance();
+  
+  // ✅ State lưu base64 cho từng file field (giống imageUrl của avatar)
+  const [uploadedFiles, setUploadedFiles] = useState({});
+  const [loading, setLoading] = useState({});
+
+  // ✅ Convert file to base64 (giống getBase64 của avatar)
+  const getBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // ✅ Validate trước khi upload (giống beforeUpload của avatar)
+  const beforeUpload = (file, field) => {
+    const allowedExtensions = field.format_store?.extensions_allowed
+      ?.split(',')
+      .map(ext => ext.trim());
+    
+    if (allowedExtensions && allowedExtensions.length > 0) {
+      const fileExtension = file.name.split('.').pop().toLowerCase();
+      const isValid = allowedExtensions.some(ext => 
+        ext === `.${fileExtension}` || ext === fileExtension
+      );
+      
+      if (!isValid) {
+        message.error(
+          formatMessage({
+            id: 'field.invalid.extension',
+            defaultMessage: `Invalid file type. Allowed extensions: ${allowedExtensions.join(', ')}`,
+          })
+        );
+        return Upload.LIST_IGNORE;
+      }
+    }
+    
+    // ✅ QUAN TRỌNG: Return false để không auto upload
+    return false;
+  };
+
+  // ✅ Xử lý khi user chọn file (giống handleUploadChange của avatar)
+  const handleFileChange = (fieldName, info) => {
+    const { file } = info;
+    
+    if (file.originFileObj) {
+      setLoading(prev => ({ ...prev, [fieldName]: true }));
+      
+      getBase64(file.originFileObj)
+        .then((base64) => {
+          // Lưu base64 vào state để preview
+          setUploadedFiles(prev => ({
+            ...prev,
+            [fieldName]: base64
+          }));
+          
+          // ✅ Update form value với base64 (giống avatar)
+          form.setFieldsValue({
+            customField: {
+              ...form.getFieldValue('customField'),
+              [fieldName]: base64
+            }
+          });
+          
+          setLoading(prev => ({ ...prev, [fieldName]: false }));
+        })
+        .catch((e) => {
+          console.error('Error reading file:', e);
+          setLoading(prev => ({ ...prev, [fieldName]: false }));
+        });
+    }
+  };
+
+  const renderField = (field) => {
+    // ... other field types ...
+
+    if (field.field_format === 'attachment') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'field.required',
+                defaultMessage: 'This field is required',
+              }),
+            },
+          ]}
+        >
+          {/* ✅ Giống Upload avatar - listType="picture-card" */}
+          <Upload
+            name={field.name}
+            listType="picture-card"
+            showUploadList={false}
+            beforeUpload={(file) => beforeUpload(file, field)}
+            onChange={(info) => handleFileChange(field.name, info)}
+            accept={field.format_store?.extensions_allowed || '*'}
+          >
+            {uploadedFiles[field.name] && !loading[field.name] ? (
+              <Image
+                src={uploadedFiles[field.name]}
+                alt={field.name}
+                style={{
+                  width: '152px',
+                  height: '152px',
+                  objectFit: 'cover',
+                }}
+                preview={false}
+              />
+            ) : (
+              <div>
+                {loading[field.name] ? <LoadingOutlined /> : <PlusOutlined />}
+                <div style={{ marginTop: 8 }}>
+                  {formatMessage({
+                    id: 'field.upload',
+                    defaultMessage: 'Click to Upload',
+                  })}
+                </div>
+              </div>
+            )}
+          </Upload>
+        </Form.Item>
+      );
+    }
+    
+    // ... other field types ...
+  };
+
+  return (
+    // ... JSX ...
+  );
+}
+
+
+
+const API_HOST = window.env.API_HOST;
+
+useEffect(() => {
+  // ✅ Load existing files khi edit
+  const customFieldValues = form.getFieldValue('customField') || {};
+  const newUploadedFiles = {};
+  
+  Object.entries(customFieldValues).forEach(([fieldName, value]) => {
+    // Nếu là path từ server
+    if (typeof value === 'string' && value.startsWith('/uploads')) {
+      newUploadedFiles[fieldName] = `${API_HOST}/hrm${value}`;
+    }
+  });
+  
+  setUploadedFiles(newUploadedFiles);
+}, []);

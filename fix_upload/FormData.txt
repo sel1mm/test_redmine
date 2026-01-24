@@ -1,0 +1,78 @@
+import fieldConfig from './CustomizeField.json';
+
+const normalizeCustomFieldValue = (value, fieldFormat) => {
+  // ✅ Xử lý attachment field - Load file path khi edit
+  if (fieldFormat === 'attachment') {
+    if (typeof value === 'string' && value.startsWith('/uploads')) {
+      // Đã là path từ DB, giữ nguyên
+      return value;
+    }
+    return value;
+  }
+  
+  // Xử lý boolean
+  if (value === '1' || value === '0') {
+    return value === '1';
+  }
+  
+  // Xử lý number
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (!isNaN(value) && value !== '') {
+    return Number(value);
+  }
+  
+  // Xử lý date
+  if (
+    typeof value === 'string' &&
+    moment(value, 'YYYY-MM-DD', true).isValid()
+  ) {
+    return moment(value);
+  }
+  
+  return value;
+};
+
+const mapCustomFieldToObject = (customField) => {
+  const result = {};
+  
+  if (!customField) return result;
+  
+  // Backend trả về array format
+  if (Array.isArray(customField)) {
+    customField.forEach(({ name, value }) => {
+      if (!name) return;
+      
+      // ✅ Tìm field config để xác định field_format
+      const fieldDef = fieldConfig.find(f => f.name === name);
+      result[name] = normalizeCustomFieldValue(value, fieldDef?.field_format);
+    });
+  }
+  // Backend trả về object format (JSONB)
+  else if (typeof customField === 'object') {
+    Object.entries(customField).forEach(([name, value]) => {
+      const fieldDef = fieldConfig.find(f => f.name === name);
+      result[name] = normalizeCustomFieldValue(value, fieldDef?.field_format);
+    });
+  }
+  
+  return result;
+};
+
+useEffect(() => {
+  form.resetFields();
+  form.setFieldsValue({
+    ...modalEmployeeData,
+    dateOfBirth: modalEmployeeData?.dateOfBirth ? moment(modalEmployeeData.dateOfBirth) : null,
+    hireDate: modalEmployeeData?.hireDate ? moment(modalEmployeeData.hireDate) : null,
+    endDate: modalEmployeeData?.endDate ? moment(modalEmployeeData.endDate) : null,
+    skills: modalEmployeeData?.skills?.map((skill) => skill.id),
+    customField: mapCustomFieldToObject(modalEmployeeData?.customField),
+  });
+
+  if (modalEmployeeData?.avatar && isEdit) 
+    setImageUrl(`${API_HOST}/hrm${modalEmployeeData?.avatar}`);
+  else 
+    setImageUrl(null);
+}, [modalEmployeeData]);

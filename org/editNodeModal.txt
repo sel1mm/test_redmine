@@ -1,0 +1,55 @@
+const editNodeOpenModal = (record) => {
+  setCurrentRecord(record);
+  
+  // Map employee IDs to full employee data
+  let employeeIds = record.employees || [];
+  if (employeeIds.length > 0 && typeof employeeIds[0] === 'string') {
+    // Nếu employees là array of IDs, giữ nguyên
+    employeeIds = employeeIds;
+  } else if (employeeIds.length > 0 && typeof employeeIds[0] === 'object') {
+    // Nếu employees đã là array of objects, lấy IDs
+    employeeIds = employeeIds.map(emp => emp.id || emp);
+  }
+  
+  // Lấy danh sách employees thuộc department này từ employeesState
+  const departmentEmployees = employeesState
+    .filter(emp => emp.departmentId === record.id)
+    .map(emp => emp.id);
+  
+  // Merge với employees từ record (nếu có)
+  const finalEmployeeIds = [...new Set([...departmentEmployees, ...employeeIds])];
+  
+  const mappingDataModel = {
+    description: record.description,
+    manager: record.managerId,
+    subManagers: record.subManagers || [],
+    color: record.color,
+    name: record.departmentName,
+    employees: finalEmployeeIds, // Sử dụng IDs đã được verify
+  };
+  setModalFormData(mappingDataModel);
+  setEditFormVisible(true);
+};
+
+
+
+
+const editNodeOpenModal = (record) => {
+  setCurrentRecord(record);
+  
+  // Lấy employees từ employeesState thay vì từ record
+  const departmentEmployees = employeesState
+    .filter(emp => emp.departmentId === record.id)
+    .map(emp => emp.id);
+  
+  const mappingDataModel = {
+    description: record.description,
+    manager: record.managerId,
+    subManagers: record.subManagers || [],
+    color: record.color,
+    name: record.departmentName,
+    employees: departmentEmployees, // Luôn lấy từ employeesState
+  };
+  setModalFormData(mappingDataModel);
+  setEditFormVisible(true);
+};

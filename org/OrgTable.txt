@@ -1,0 +1,443 @@
+import { TableSettings, IconReactFA, PermissionWrapper } from '@toolchain/component';
+import { useState, useEffect, useRef } from 'react';
+import { buildHierarchy, searchWithConditions, mapManagerAndEmployees, searchDataWithChildren } from '../../functions';
+import CreateEditForm from '../CreateEditForm';
+import { useIntl, usePermissions } from '@toolchain/hook';
+import { cloneDeep, isEqual } from 'lodash';
+import { history, connect } from 'umi';
+import { Button, Space, Modal } from 'antd';
+import { Tooltip } from 'antd';
+import { Popconfirm } from 'antd';
+import classNames from 'classnames';
+import { v4 as uuidv4 } from 'uuid';
+import imageAvatar from './tempsnip.png';
+import PermissionEnum from '../../../../config/permission';
+
+const defaultManager = {
+  account: 'N/A',
+};
+
+function OrgTable({ list, employeesList, employeesData, saveAll, saveOne }) {
+  const { formatMessage } = useIntl();
+  const { hasComponentPermissions } = usePermissions();
+
+  // Permission checks
+  const hasAddPermission = hasComponentPermissions(
+    PermissionEnum.ORG_CHART_ADD.componentIds.PC_ORG_CHART_ADD,
+    PermissionEnum.ORG_CHART_ADD.value,
+    'some'
+  );
+  
+  const hasEditPermission = hasComponentPermissions(
+    PermissionEnum.ORG_CHART_EDIT.componentIds.PC_ORG_CHART_EDIT,
+    PermissionEnum.ORG_CHART_EDIT.value,
+    'some'
+  );
+  
+  const hasDeletePermission = hasComponentPermissions(
+    PermissionEnum.ORG_CHART_DELETE.componentIds.PC_ORG_CHART_DELETE,
+    PermissionEnum.ORG_CHART_DELETE.value,
+    'some'
+  );
+
+  // State management
+  const [rows, setRows] = useState([]);
+  const originalRowsRef = useRef([]);
+  const [page, setPage] = useState(1);
+  const [per, setPer] = useState(10);
+  const [createFormVisible, setCreateFormVisible] = useState(false);
+  const [editFormVisible, setEditFormVisible] = useState(false);
+  const [modalFormData, setModalFormData] = useState({});
+  const [currentRecord, setCurrentRecord] = useState(null);
+  const [employeesState, setEmployeesState] = useState(employeesList || []);
+
+  // Helper function to check if name exists
+  const isNameExist = (name, currName) => {
+    if (name === currName) return false;
+    const nameList = list.map((node) => node.departmentName);
+    return nameList.includes(name);
+  };
+
+  // Helper function to get all children IDs
+  function getAllChildrenIds(nodeData) {
+    let allChildrenIds = [];
+    if (nodeData.children && nodeData.children.length > 0) {
+      nodeData.children.forEach((child) => {
+        allChildrenIds.push(child.id);
+        allChildrenIds = allChildrenIds.concat(getAllChildrenIds(child));
+      });
+    }
+    return allChildrenIds;
+  }
+
+  // Add new department
+  const addNewNode = async (data, form) => {
+    const isExist = isNameExist(data.name);
+    if (isExist) {
+      Modal.error({
+        title: 'Error',
+        content: formatMessage({ id: 'hrm.departments.error.name.exists' }),
+      });
+      return;
+    }
+
+    const manager =
+      employeesList.find((item) => item.id === data.manager) || defaultManager;
+    const newDepartmentId = uuidv4();
+
+    const saveData = {
+      id: newDepartmentId,
+      parentDepId: currentRecord ? currentRecord.id : null,
+      depName: data.name,
+      color: data.color,
+      managerId: manager.id,
+      subManagers: data.subManagers,
+      depDescription: data.description,
+      employees: data.employees,
+    };
+
+    const res = await saveOne(saveData);
+    if (res === true) {
+      if (data.employees && data.employees.length) {
+        const newEmployeesState = employeesState.map((item) => {
+          if (data.employees.includes(item.id)) {
+            return {
+              ...item,
+              departmentId: newDepartmentId,
+            };
+          }
+          return item;
+        });
+        if (!isEqual(employeesState, newEmployeesState)) {
+          setEmployeesState(newEmployeesState);
+        }
+      }
+      form.resetFields();
+      setCreateFormVisible(false);
+      setCurrentRecord(null);
+    }
+  };
+
+  // Open edit modal
+  const editNodeOpenModal = (record) => {
+    setCurrentRecord(record);
+    const mappingDataModel = {
+      description: record.description,
+      manager: record.managerId,
+      subManagers: record.subManagers || [],
+      color: record.color,
+      name: record.departmentName,
+      employees: record.employees || [],
+    };
+    setModalFormData(mappingDataModel);
+    setEditFormVisible(true);
+  };
+
+  // Edit department
+  const editNode = async (data, form) => {
+    const isExist = isNameExist(data.name, currentRecord?.departmentName);
+    if (isExist) {
+      Modal.error({
+        title: 'Error',
+        content: formatMessage({ id: 'hrm.departments.error.name.exists' }),
+      });
+      return;
+    }
+
+    const manager =
+      employeesList.find((item) => item.id === data.manager) || defaultManager;
+
+    const saveData = {
+      id: currentRecord.id,
+      depName: data.name,
+      color: data.color,
+      managerId: manager.id,
+      subManagers: data.subManagers,
+      depDescription: data.description,
+      employees: data.employees,
+    };
+
+    const res = await saveOne(saveData);
+    if (res === true) {
+      if (data.employees) {
+        const newEmployeesState = employeesState.map((item) => {
+          if (data.employees.includes(item.id)) {
+            return {
+              ...item,
+              departmentId: currentRecord.id,
+            };
+          }
+
+          if (item.departmentId === currentRecord.id) {
+            return {
+              ...item,
+              departmentId: null,
+            };
+          }
+          return item;
+        });
+        if (!isEqual(employeesState, newEmployeesState)) {
+          setEmployeesState(newEmployeesState);
+        }
+      }
+      form.resetFields();
+      setEditFormVisible(false);
+      setCurrentRecord(null);
+    }
+  };
+
+  // Delete department
+  const handleDeleteClick = async (record) => {
+    const newEmployeesState = employeesState.map((item) => {
+      if (item.departmentId === record.id) {
+        return {
+          ...item,
+          departmentId: null,
+        };
+      }
+      return item;
+    });
+    if (!isEqual(employeesState, newEmployeesState)) {
+      setEmployeesState(newEmployeesState);
+    }
+
+    Modal.confirm({
+      title: formatMessage({ id: 'app.global.confirm' }),
+      content: formatMessage({ id: 'hrm.departments.node.delete.confirm' }),
+      async onOk() {
+        const childIds = getAllChildrenIds(record);
+        const deleteItems = childIds.map((childId) => ({
+          id: childId,
+          deleted: true,
+        }));
+        deleteItems.push({
+          id: record.id,
+          deleted: true,
+        });
+        await saveAll(deleteItems);
+      },
+      okText: formatMessage({ id: 'button.ok' }),
+      cancelText: formatMessage({ id: 'button.cancel' }),
+      onCancel() {
+        console.log('Delete cancelled');
+      },
+    });
+  };
+
+  const COLUMNS = [
+    {
+      title: formatMessage({ id: 'hrm.departments.title.departmentName' }),
+      dataIndex: 'departmentName',
+      key: 'departmentName',
+      render: (text, record) => <a onClick={() => goDetail(record)}>{text}</a>,
+      sorter: false,
+    },
+    {
+      title: formatMessage({ id: 'hrm.departments.title.manager' }),
+      dataIndex: 'managerName',
+      key: 'managerName',
+      sorter: false,
+      render: (text, record, index) => (
+        <div className="manager-name-row">
+          <img src={record.managerAvatar} />
+          <span>{record.managerName}</span>
+        </div>
+      ),
+    },
+    {
+      title: formatMessage({ id: 'hrm.departments.title.employees' }),
+      dataIndex: 'teamSize',
+      key: 'quantity',
+      width: '150px',
+      sorter: false,
+      hideInSearch: true,
+    },
+    {
+      title: formatMessage({ id: 'table.title.actions' }),
+      dataIndex: 'action',
+      key: 'action',
+      width: '120px',
+      sorter: false,
+      hideInSearch: true,
+      render: (text, record, index) => {
+        return (
+          <Space className="cell-actions">
+            {hasAddPermission && (
+              <Tooltip title={formatMessage({ id: 'button.add' })}>
+                <Button
+                  size="small"
+                  type="link"
+                  icon={<IconReactFA iconName="FaPlus" />}
+                  className={classNames('anticon', 'button-icon')}
+                  onClick={() => {
+                    setCurrentRecord(record);
+                    setCreateFormVisible(true);
+                  }}
+                />
+              </Tooltip>
+            )}
+            {hasEditPermission && (
+              <Tooltip title={formatMessage({ id: 'button.edit' })}>
+                <Button
+                  size="small"
+                  type="link"
+                  icon={<IconReactFA iconName="FaEdit" />}
+                  className={classNames('anticon', 'button-icon')}
+                  onClick={() => editNodeOpenModal(record)}
+                />
+              </Tooltip>
+            )}
+            {hasDeletePermission && record.parent !== null && (
+              <Tooltip title={formatMessage({ id: 'button.delete' })}>
+                <Popconfirm
+                  title={formatMessage({ id: 'hrm.departments.table.delete.title' })}
+                  description={formatMessage({
+                    id: 'hrm.departments.table.delete.description',
+                  })}
+                  onConfirm={() => handleDeleteClick(record)}
+                  onCancel={() => {}}
+                  okText={formatMessage({ id: 'button.yes' })}
+                  cancelText={formatMessage({ id: 'button.no' })}
+                >
+                  <Button
+                    size="small"
+                    type="link"
+                    icon={<IconReactFA iconName="FaTimes" />}
+                    className={classNames('anticon', 'button-icon')}
+                  />
+                </Popconfirm>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
+  ];
+
+  useEffect(() => {
+    const hierarchicalList = buildHierarchy(list, employeesList);
+    if (!hierarchicalList) return;
+    originalRowsRef.current = cloneDeep(hierarchicalList);
+    setRows(originalRowsRef.current);
+  }, [list, employeesList, employeesData]);
+
+  useEffect(() => {
+    setEmployeesState(employeesList);
+  }, [employeesList]);
+
+  function goDetail(record) {
+    history.push(`/departments/${record.id}`);
+  }
+
+  function handleSearch(params) {
+    const cleanParams = Object.fromEntries(
+      Object.entries(params).filter(([key, value]) => value !== undefined && value !== null && value !== "")
+    );
+    const length = Object.keys(cleanParams).length;
+    if (!!length) {
+      originalRowsRef.current = [];
+      const map = mapManagerAndEmployees(list, employeesList);
+      const result = searchDataWithChildren(map, cleanParams.departmentName, cleanParams.managerName);
+      originalRowsRef.current = result;
+      setRows(result);
+    } else {
+      originalRowsRef.current = [];
+      const hierarchicalList = buildHierarchy(list, employeesList);
+      if (!hierarchicalList) return;
+      
+      originalRowsRef.current = hierarchicalList;
+      setRows(originalRowsRef.current);
+    }
+  }
+
+  function handleReset() {
+    setRows(originalRowsRef.current);
+  }
+
+  function handleChangePagination(currentPage, pageSize) {
+    if (pageSize !== per) {
+      setPer(pageSize);
+      setPage(1);
+    } else {
+      setPage(currentPage);
+    }
+  }
+
+  return (
+    <div className="wrapper">
+      {createFormVisible && (
+        <CreateEditForm
+          visible={createFormVisible}
+          modalResourceData={{
+            managers: employeesList,
+            employeesState,
+            employeesOptions: employeesState.filter(
+              (item) => !item.departmentId,
+            ),
+          }}
+          onCancel={() => {
+            setCreateFormVisible(false);
+            setCurrentRecord(null);
+          }}
+          onSubmit={addNewNode}
+          titleModal={formatMessage({
+            id: 'hrm.departments.title.create',
+          })}
+          formType={''}
+        />
+      )}
+
+      {editFormVisible && (
+        <CreateEditForm
+          visible={editFormVisible}
+          modalViewResourceData={modalFormData}
+          modalResourceData={{
+            departmentId: currentRecord?.id,
+            managers: employeesList,
+            employeesOptions: employeesState.filter(
+              (item) =>
+                item.departmentId === currentRecord?.id ||
+                !item.departmentId,
+            ),
+          }}
+          onCancel={() => {
+            setEditFormVisible(false);
+            setCurrentRecord(null);
+          }}
+          onSubmit={editNode}
+          titleModal={formatMessage({
+            id: 'hrm.departments.title.edit',
+          })}
+          formType={'Edit'}
+        />
+      )}
+
+      <TableSettings
+        tableLayout="fixed"
+        bordered
+        columns={COLUMNS}
+        dataSource={rows}
+        onSearch={handleSearch}
+        onReset={handleReset}
+        pagination={{
+          showQuickJumper: false,
+          current: page,
+          pageSize: per,
+          onChange: handleChangePagination,
+        }}
+        toolbar={{}}
+      />
+    </div>
+  );
+}
+
+export default connect(({ Departments, Employees, loading }) => ({
+  loading: loading.effects['Departments/queryTableData'],
+  loadingEmployees: loading.effects['Employees/queryTableData'],
+  visitData: Departments.tableData,
+  employeesData: Employees.allData,
+  modalResourceData: Departments.modalResourceData,
+  createSubmitLoading: loading.effects['Departments/createTableData'],
+  updateData: Departments.updateData,
+  updateSubmitLoading: loading.effects['Departments/updateTableData'],
+}))(OrgTable);

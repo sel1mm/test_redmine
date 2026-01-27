@@ -1,0 +1,33 @@
+{
+  "eventType": "TICKET_RATING_AVAILABLE",
+  "ticket": {
+    "ticketId": 1811,
+    "ticketUuid": "cee29168-0e85-4e03-82b6-0fef255f0b1d",
+    "title": "Test Rating",
+    "requestType": "Borrow",
+    "createdBy": "trangpt84",
+    "finishedAt": "2026-01-23T04:10:12.317Z"
+  },
+  "rating": {
+    "ratingId": "RAT-88991",
+    "ratingLink": "https://ticket.example.com/rating/RAT-88991",
+    "expiredAt": "2026-01-30T23:59:59Z"
+  },
+  "recipient": {
+    "userId": "trangpt84",
+    "channel": "CHATBOT"
+  }
+}
+
+
+{
+  "status": "DELIVERED",
+  "messageId": "CHAT-556677",
+  "deliveredAt": "2026-01-23T04:11:02.112Z"
+}
+
+
+{
+  "errorCode": "INVALID_PAYLOAD",
+  "message": "Missing required field: ratingLink"
+}

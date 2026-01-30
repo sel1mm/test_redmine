@@ -1,0 +1,570 @@
+import React, { useEffect, useState } from 'react';
+import { Col, Form, Input, InputNumber, Row, DatePicker, Upload, Image, Slider, Checkbox, Select } from 'antd';
+import { useIntl } from '@toolchain/hook';
+import { PlusOutlined, LoadingOutlined } from '@ant-design/icons';
+import { message } from 'antd';
+import fieldConfig from './DepartmentCustomizeField.json';
+import { dateFormat } from '../../constants';
+
+const API_HOST = window.env.API_HOST;
+
+function parsePossibleValues(str) {
+  if (!str) return [];
+  return str
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.startsWith('- '))
+    .map(line => line.substring(2));
+}
+
+function DepartmentCustomizeField({ viewOnly = false, onFieldChange = () => {} }) {
+  const { formatMessage } = useIntl();
+  const form = Form.useFormInstance();
+  
+  const [uploadedFiles, setUploadedFiles] = useState({});
+  const [loading, setLoading] = useState({});
+
+  useEffect(() => {
+    const customFieldValues = form.getFieldValue('customField') || {};
+    const newUploadedFiles = {};
+
+    Object.entries(customFieldValues).forEach(([fieldName, value]) => {
+      if (typeof value === 'string' && value.startsWith('/uploads')) {
+        newUploadedFiles[fieldName] = `${API_HOST}/hrm${value}`;
+      }
+    });
+
+    setUploadedFiles(newUploadedFiles);
+  }, []);
+
+  const getBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const beforeUpload = (file, field) => {
+    const allowedExtensions = field.format_store?.extensions_allowed
+      ?.split(',')
+      .map(ext => ext.trim());
+
+    if (allowedExtensions && allowedExtensions.length > 0) {
+      const fileExtension = file.name.split('.').pop().toLowerCase();
+      const isValid = allowedExtensions.some(ext =>
+        ext === `.${fileExtension}` || ext === fileExtension
+      );
+
+      if (!isValid) {
+        message.error(
+          formatMessage({
+            id: 'field.invalid.extension',
+            defaultMessage: `Invalid file type. Allowed extensions: ${allowedExtensions.join(', ')}`,
+          })
+        );
+        return Upload.LIST_IGNORE;
+      }
+    }
+
+    return false;
+  };
+
+  const handleFileChange = (fieldName, info) => {
+    const file = info.file;
+    const fileObj = file.originFileObj || file;
+
+    if (fileObj && fileObj instanceof File) {
+      setLoading(prev => ({ ...prev, [fieldName]: true }));
+
+      getBase64(fileObj)
+        .then((base64) => {
+          setUploadedFiles(prev => ({
+            ...prev,
+            [fieldName]: base64
+          }));
+
+          form.setFieldsValue({
+            customField: {
+              ...form.getFieldValue('customField'),
+              [fieldName]: base64
+            }
+          });
+
+          setLoading(prev => ({ ...prev, [fieldName]: false }));
+          onFieldChange();
+        })
+        .catch((e) => {
+          console.error('Error reading file:', e);
+          setLoading(prev => ({ ...prev, [fieldName]: false }));
+        });
+    }
+  };
+
+  const renderField = (field) => {
+    if (field.field_format === 'string') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+            {
+              max: field.max_length,
+              message: formatMessage({
+                id: 'field.max.length',
+                defaultMessage: `Maximum length is ${field.max_length}`,
+              }),
+            },
+          ]}
+        >
+          <Input
+            placeholder={viewOnly ? '' : formatMessage({ id: 'input.placeholder.type' })}
+            onChange={onFieldChange}
+          />
+        </Form.Item>
+      );
+    } else if (field.field_format === 'int') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+            {
+              type: 'number',
+              message: formatMessage({
+                id: 'field.number',
+                defaultMessage: 'This field must be a number',
+              }),
+            },
+          ]}
+        >
+          <InputNumber 
+            style={{ width: '100%' }}
+            placeholder={viewOnly ? '' : 'Integer number'}
+            onChange={onFieldChange}
+          />
+        </Form.Item>
+      );
+    } else if (field.field_format === 'date') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+            {
+              validator: (_, value) => {
+                if (value) {
+                  const selectedDate = value.toDate();
+                  if (field.min_length && selectedDate < new Date(field.min_length)) {
+                    return Promise.reject(
+                      formatMessage({
+                        id: 'field.min.date',
+                        defaultMessage: `Date must be after ${field.min_length}`,
+                      })
+                    );
+                  }
+                  if (field.max_length && selectedDate > new Date(field.max_length)) {
+                    return Promise.reject(
+                      formatMessage({
+                        id: 'field.max.date',
+                        defaultMessage: `Date must be before ${field.max_length}`,
+                      })
+                    );
+                  }
+                }
+                return Promise.resolve();
+              },
+            },
+          ]}
+        >
+          <DatePicker
+            placeholder={viewOnly ? '' : 'Select Date'}
+            style={{ width: '100%' }}
+            format={dateFormat}
+            onChange={onFieldChange}
+          />
+        </Form.Item>
+      );
+    } else if (field.field_format === 'float') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+            {
+              type: 'number',
+              message: formatMessage({
+                id: 'field.float.type',
+                defaultMessage: 'Please enter a valid number',
+              }),
+            },
+            {
+              validator: (_, value) => {
+                if (value !== undefined && field.min_length !== null && value < field.min_length) {
+                  return Promise.reject(
+                    formatMessage({
+                      id: 'field.min.value',
+                      defaultMessage: `Minimum value is ${field.min_length}`,
+                    })
+                  );
+                }
+                if (value !== undefined && field.max_length !== null && value > field.max_length) {
+                  return Promise.reject(
+                    formatMessage({
+                      id: 'field.max.value',
+                      defaultMessage: `Maximum value is ${field.max_length}`,
+                    })
+                  );
+                }
+                return Promise.resolve();
+              },
+            },
+          ]}
+        >
+          <InputNumber
+            placeholder={viewOnly ? '' : 'Float'}
+            style={{ width: '100%' }}
+            step={0.01}
+            onChange={onFieldChange}
+          />
+        </Form.Item>
+      );
+    } else if (field.field_format === 'link') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+            {
+              type: 'url',
+              message: formatMessage({
+                id: 'field.link.type',
+                defaultMessage: 'Please enter a valid URL',
+              }),
+            },
+            {
+              max: field.max_length,
+              message: formatMessage({
+                id: 'field.max.length',
+                defaultMessage: `Maximum length is ${field.max_length}`,
+              }),
+            },
+          ]}
+        >
+          <Input
+            placeholder={viewOnly ? '' : 'Enter URL'}
+            type="url"
+            onChange={onFieldChange}
+          />
+        </Form.Item>
+      );
+    } else if (field.field_format === 'list') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+          ]}
+        >
+          <Select
+            placeholder={viewOnly ? '' : (field.default_value || 'Select an option')}
+            mode={field.multiple === 1 ? 'multiple' : undefined}
+            style={{ width: '100%' }}
+            onChange={onFieldChange}
+            allowClear
+          >
+            {parsePossibleValues(field.possible_values).map((value) => (
+              <Select.Option key={value} value={value}>
+                {value}
+              </Select.Option>
+            ))}
+          </Select>
+        </Form.Item>
+      );
+    } else if (field.field_format === 'bool') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          valuePropName='checked'
+          initialValue={false}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+          ]}
+        >
+          <Checkbox onChange={onFieldChange} />
+        </Form.Item>
+      );
+    } else if (field.field_format === 'user') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+          ]}
+        >
+          <Select
+            placeholder={viewOnly ? '' : (field.default_value || 'Select a user')}
+            mode={field.multiple === 1 ? 'multiple' : undefined}
+            style={{ width: '100%' }}
+            onChange={onFieldChange}
+            allowClear
+          >
+            {field.possible_values?.map((user) => (
+              <Select.Option key={user.id} value={user.id}>
+                {user.name}
+              </Select.Option>
+            ))}
+          </Select>
+        </Form.Item>
+      );
+    } else if (field.field_format === 'version') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+          ]}
+        >
+          <Select
+            placeholder={viewOnly ? '' : (field.default_value || 'Select a version')}
+            mode={field.multiple === 1 ? 'multiple' : undefined}
+            style={{ width: '100%' }}
+            onChange={onFieldChange}
+            allowClear
+          >
+            {parsePossibleValues(field.format_store).map((version) => (
+              <Select.Option key={version} value={version}>
+                {version}
+              </Select.Option>
+            ))}
+          </Select>
+        </Form.Item>
+      );
+    } else if (field.field_format === 'attachment') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+          ]}
+        >
+          <Upload
+            name={field.name}
+            listType="picture-card"
+            showUploadList={false}
+            beforeUpload={(file) => beforeUpload(file, field)}
+            onChange={(info) => handleFileChange(field.name, info)}
+            accept={field.format_store?.extensions_allowed || '*'}
+            disabled={viewOnly}
+          >
+            {uploadedFiles[field.name] && !loading[field.name] ? (
+              <Image
+                src={uploadedFiles[field.name]}
+                alt={field.name}
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  objectFit: 'cover',
+                }}
+                preview={false}
+              />
+            ) : (
+              <div>
+                {loading[field.name] ? <LoadingOutlined /> : <PlusOutlined />}
+                <div style={{ marginTop: 8 }}>
+                  {formatMessage({
+                    id: 'field.upload',
+                    defaultMessage: 'Upload',
+                  })}
+                </div>
+              </div>
+            )}
+          </Upload>
+        </Form.Item>
+      );
+    } else if (field.field_format === 'enumeration') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+          ]}
+        >
+          <Select
+            placeholder={viewOnly ? '' : formatMessage({
+              id: 'input.placeholder.choose.one',
+              defaultMessage: 'Please select an option',
+            })}
+            defaultValue={field.default_value}
+            allowClear
+            onChange={onFieldChange}
+          >
+            {field.possible_values &&
+              field.possible_values.map((value) => (
+                <Select.Option key={value.id} value={value.id}>
+                  {value.name}
+                </Select.Option>
+              ))}
+          </Select>
+        </Form.Item>
+      );
+    } else if (field.field_format === 'text') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+            {
+              min: field.min_length,
+              message: formatMessage({
+                id: 'field.min.length',
+                defaultMessage: `Minimum length is ${field.min_length}`,
+              }),
+            },
+            {
+              max: field.max_length,
+              message: formatMessage({
+                id: 'field.max.length',
+                defaultMessage: `Maximum length is ${field.max_length}`,
+              }),
+            },
+          ]}
+        >
+          <Input.TextArea
+            placeholder={viewOnly ? '' : formatMessage({
+              id: 'input.placeholder.type',
+              defaultMessage: 'Enter your text here',
+            })}
+            defaultValue={field.default_value}
+            autoSize={{ minRows: 2, maxRows: 4 }}
+            onChange={onFieldChange}
+          />
+        </Form.Item>
+      );
+    } else if (field.field_format === 'progressbar') {
+      return (
+        <Form.Item
+          label={field.name}
+          name={['customField', field.name]}
+          rules={[
+            {
+              required: field.is_required === 1,
+              message: formatMessage({
+                id: 'input.required',
+                values: { fieldName: field.name },
+              }),
+            },
+          ]}
+        >
+          <Slider
+            min={0}
+            max={100}
+            step={parseInt(field.format_store?.ratio_interval || '10', 10)}
+            defaultValue={field.default_value ? parseInt(field.default_value, 10) : 0}
+            tooltip={{ formatter: (value) => `${value}%` }}
+            onChange={onFieldChange}
+            disabled={viewOnly}
+          />
+        </Form.Item>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <>
+      {fieldConfig.map((field) => (
+        <React.Fragment key={field.id}>
+          {renderField(field)}
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
+export default DepartmentCustomizeField;

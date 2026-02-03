@@ -1,0 +1,50 @@
+/* Comment Section */
+.rating-comment {
+  margin-top: 20px;
+}
+
+.rating-comment-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #262626;
+  margin-bottom: 8px;
+}
+
+.rating-comment .ant-input-textarea-show-count::after {
+  float: right;
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+/* Submit Button */
+.rating-submit {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.rating-submit .ant-btn {
+  min-width: 180px;
+  height: 40px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Disabled state */
+.rating-submit .ant-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .rating-comment-label {
+    font-size: 13px;
+  }
+
+  .rating-submit .ant-btn {
+    width: 100%;
+    min-width: auto;
+  }
+}
+```

@@ -1,0 +1,289 @@
+const RatingFeedback = (props) => {
+  const { dispatch, record, isRequester, selectedNode } = props;
+  const { formatMessage } = useIntl();
+  const currentLocale = getLocale();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // ⭐ THÊM state cho rating form
+  const [ratingValue, setRatingValue] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+
+
+======================
+
+const handleSubmit = async (fieldName) => {
+  // Validation: phải có rating value
+  if (ratingValue === 0) {
+    notification.warning({
+      message: formatMessage({
+        id: 'app.global.customField.ratingRequired',
+        defaultMessage: 'Please select a rating before submitting.',
+      }),
+    });
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const res = await dispatch({
+      type: 'ticketsV2/updateCustomField',
+      payload: {
+        fieldName: fieldName,
+        value: ratingValue,
+        comment: comment.trim() || undefined, // Chỉ gửi comment nếu có nội dung
+        id: record.id,
+      },
+    });
+
+    if (res?.error) {
+      notification.error({
+        message:
+          res.error.message ||
+          formatMessage({
+            id: 'tkm.ticket.action.error',
+          }),
+      });
+      return;
+    }
+
+    // Show success dialog
+    Modal.success({
+      title: formatMessage({
+        id: 'app.global.customField.ratingSuccess.title',
+        defaultMessage: 'Rating submitted successfully',
+      }),
+      content: formatMessage({
+        id: 'app.global.customField.ratingSuccess.content',
+        defaultMessage: 'Thank you for your feedback.',
+      }),
+    });
+
+    // Reload page to show updated rating
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  } catch (error) {
+    console.error('Error submitting rating:', error);
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+
+
+OPTION 1: 2 API riêng
+
+const handleSubmit = async (fieldName) => {
+  // Validation: phải có rating value
+  if (ratingValue === 0) {
+    notification.warning({
+      message: formatMessage({
+        id: 'app.global.customField.ratingRequired',
+        defaultMessage: 'Please select a rating before submitting.',
+      }),
+    });
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    // ⭐ API Call 1: Update rating trong customFieldsData
+    const ratingRes = await dispatch({
+      type: 'ticketsV2/updateCustomField',
+      payload: {
+        fieldName: fieldName,
+        value: ratingValue,
+        id: record.id,
+      },
+    });
+
+    if (ratingRes?.error) {
+      notification.error({
+        message:
+          ratingRes.error.message ||
+          formatMessage({
+            id: 'tkm.ticket.action.error',
+          }),
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    // ⭐ API Call 2: Update comment nếu có
+    if (comment.trim()) {
+      const commentRes = await dispatch({
+        type: 'ticketsV2/updateTicketComment',
+        payload: {
+          id: record.id,
+          comment: comment.trim(),
+        },
+      });
+
+      if (commentRes?.error) {
+        notification.warning({
+          message: formatMessage({
+            id: 'app.global.customField.commentSaveFailed',
+            defaultMessage: 'Rating saved but comment failed to save.',
+          }),
+        });
+      }
+    }
+
+    // Show success dialog
+    Modal.success({
+      title: formatMessage({
+        id: 'app.global.customField.ratingSuccess.title',
+        defaultMessage: 'Rating submitted successfully',
+      }),
+      content: formatMessage({
+        id: 'app.global.customField.ratingSuccess.content',
+        defaultMessage: 'Thank you for your feedback.',
+      }),
+    });
+
+    // Reload page
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  } catch (error) {
+    console.error('Error submitting rating:', error);
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+
+
+
+
+
+OPTION 2: Cùng 1 lúc
+
+const handleSubmit = async (fieldName) => {
+  if (ratingValue === 0) {
+    notification.warning({
+      message: formatMessage({
+        id: 'app.global.customField.ratingRequired',
+        defaultMessage: 'Please select a rating before submitting.',
+      }),
+    });
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const res = await dispatch({
+      type: 'ticketsV2/updateCustomField',
+      payload: {
+        fieldName: fieldName,
+        value: ratingValue,
+        comment: comment.trim() || undefined, // Backend sẽ lưu vào field comment
+        id: record.id,
+      },
+    });
+
+    if (res?.error) {
+      notification.error({
+        message:
+          res.error.message ||
+          formatMessage({
+            id: 'tkm.ticket.action.error',
+          }),
+      });
+      return;
+    }
+
+    Modal.success({
+      title: formatMessage({
+        id: 'app.global.customField.ratingSuccess.title',
+        defaultMessage: 'Rating submitted successfully',
+      }),
+      content: formatMessage({
+        id: 'app.global.customField.ratingSuccess.content',
+        defaultMessage: 'Thank you for your feedback.',
+      }),
+    });
+
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  } catch (error) {
+    console.error('Error submitting rating:', error);
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+================================
+
+// Nếu chưa có value, hiển thị interactive rating
+return (
+  <div key={name} className="rating-feedback-content">
+    <div className="rating-title">
+      <span className="rating-icon">⭐</span>
+      <span className="rating-text">{messageText || label}</span>
+    </div>
+
+    <div className="rating-description">
+      {formatMessage({
+        id: 'app.global.customField.ratingDescription',
+        defaultMessage:
+          'Your feedback helps us improve our ticket processing quality.',
+      })}
+    </div>
+
+    {/* Rating Stars */}
+    <div className="rating-stars">
+      <Rate
+        allowHalf
+        count={maxStars}
+        value={ratingValue}
+        onChange={(value) => setRatingValue(value)}
+      />
+    </div>
+
+    {/* ⭐ THÊM Comment Textarea */}
+    <div className="rating-comment">
+      <label className="rating-comment-label">
+        {formatMessage({
+          id: 'app.global.customField.ratingComment',
+          defaultMessage: 'Comment',
+        })}
+      </label>
+      <Input.TextArea
+        rows={4}
+        placeholder={formatMessage({
+          id: 'app.global.customField.ratingCommentPlaceholder',
+          defaultMessage: 'Tell us what you liked or how we can improve...',
+        })}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        maxLength={500}
+        showCount
+      />
+    </div>
+
+    {/* ⭐ THÊM Submit Button */}
+    <div className="rating-submit">
+      <Button
+        type="primary"
+        onClick={() => handleSubmit(name)}
+        loading={submitting}
+        disabled={ratingValue === 0}
+      >
+        {formatMessage({
+          id: 'app.global.customField.submitEvaluation',
+          defaultMessage: 'Submit Evaluation',
+        })}
+      </Button>
+    </div>
+  </div>
+);

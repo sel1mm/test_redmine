@@ -1,0 +1,11 @@
+async function updateTicketComment(id, comment) {
+  return request(`/tkm/tickets/${id}/comment`, {
+    method: 'PUT',
+    data: { comment },
+  });
+}
+
+export default {
+  // ... existing exports
+  updateTicketComment,
+};

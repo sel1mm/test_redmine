@@ -1,0 +1,15 @@
+effects: {
+  // ... existing effects
+  
+  *updateTicketComment({ payload }, { call }) {
+    let response;
+    try {
+      const { id, comment } = payload;
+      response = yield call(ticketsV2Service.updateTicketComment, id, comment);
+    } catch (error) {
+      console.log(error);
+      response = { error };
+    }
+    return response;
+  },
+}

@@ -1,9 +1,10 @@
 import { memo } from 'react';
 import { connect, getLocale } from 'umi';
-import { Card, Rate, Modal, notification } from 'antd';
+import { Card, Rate, Modal, notification, Button } from 'antd';
 import { useIntl } from '@toolchain/hook';
 import { FIELD_TYPES } from '@toolchain/shared/constants/field';
 import { isEmpty, isNil } from 'lodash';
+import { IconReactFA } from '@toolchain/component';
 import './RatingFeedback.less';
 
 const RatingFeedback = (props) => {
@@ -15,32 +16,19 @@ const RatingFeedback = (props) => {
     return null;
   }
 
-  // Chỉ hiển thị khi ticket đã FINISHED
-  const isTicketFinished = record.rawStatus === 'FINISHED';
-  if (!isTicketFinished || !isRequester) {
+  // Lọc các field có updateOnFinish = true và type = RATING
+  const ratingFields = record.customFields?.filter((field) => {
+    return field.updateOnFinish && field.type === FIELD_TYPES.RATING;
+  });
+
+  // Không render nếu không có rating field nào
+  if (!ratingFields || ratingFields.length === 0) {
     return null;
   }
 
-  // Lọc các field có updateOnFinish = true và type = RATING
-  const ratingFields = record.customFields?.filter((field) => {
-    if (!field.updateOnFinish || field.type !== FIELD_TYPES.RATING) {
-      return false;
-    }
-
-    const data = record.customFieldsData || {};
-    const fieldValue = data[field.name];
-
-    // Chỉ hiển thị nếu field chưa có giá trị
-    return (
-      isNil(fieldValue) ||
-      (typeof fieldValue !== 'boolean' &&
-        typeof fieldValue !== 'number' &&
-        isEmpty(fieldValue))
-    );
-  });
-
-  // Không render nếu không có rating field nào cần hiển thị
-  if (!ratingFields || ratingFields.length === 0) {
+  // Chỉ hiển thị khi ticket đã FINISHED và user là requester
+  const isTicketFinished = record.rawStatus === 'FINISHED';
+  if (!isTicketFinished || !isRequester) {
     return null;
   }
 
@@ -81,11 +69,21 @@ const RatingFeedback = (props) => {
   return (
     <Card className="card-info rating-feedback-card">
       <div className="card-wrapper">
+        <div className="card-header">
+          <span className="headerInGeorgia">
+            {formatMessage({
+              id: 'tkm.myRequest.ratingFeedback',
+              defaultMessage: 'Rating Feedback',
+            })}
+          </span>
+        </div>
+
         <div className="card-body">
           {ratingFields.map((field) => {
-            const { name, options = {}, message } = field;
+            const { name, options = {}, message, label } = field;
             const data = record.customFieldsData || {};
             const fieldValue = data[name];
+            const hasValue = !isNil(fieldValue) && fieldValue !== 0;
 
             // Parse message with locale support
             let messageText = message;
@@ -97,15 +95,49 @@ const RatingFeedback = (props) => {
 
             const maxStars = options?.max || 5;
 
+            // Nếu đã có value, hiển thị read-only
+            if (hasValue) {
+              return (
+                <div key={name} className="rating-feedback-container rated">
+                  <div className="rating-feedback-header">
+                    <span className="rating-feedback-icon">⭐</span>
+                    <span className="rating-feedback-title">
+                      {messageText || label}
+                    </span>
+                  </div>
+
+                  <div className="rating-feedback-description">
+                    {formatMessage({
+                      id: 'app.global.customField.ratingThankYou',
+                      defaultMessage: 'Thank you for your feedback!',
+                    })}
+                  </div>
+
+                  <div className="rating-feedback-stars">
+                    <Rate
+                      allowHalf
+                      disabled
+                      count={maxStars}
+                      value={Number(fieldValue)}
+                    />
+                    <div className="rating-score">
+                      {Number(fieldValue).toFixed(1)} / {maxStars}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Nếu chưa có value, hiển thị interactive rating
             return (
               <div key={name} className="rating-feedback-container">
-                {/* Icon + Title */}
                 <div className="rating-feedback-header">
                   <span className="rating-feedback-icon">⭐</span>
-                  <span className="rating-feedback-title">{messageText}</span>
+                  <span className="rating-feedback-title">
+                    {messageText || label}
+                  </span>
                 </div>
 
-                {/* Description */}
                 <div className="rating-feedback-description">
                   {formatMessage({
                     id: 'app.global.customField.ratingDescription',
@@ -114,12 +146,11 @@ const RatingFeedback = (props) => {
                   })}
                 </div>
 
-                {/* Rating stars */}
                 <div className="rating-feedback-stars">
                   <Rate
                     allowHalf
                     count={maxStars}
-                    value={fieldValue || 0}
+                    value={0}
                     onChange={(value) => handleRatingChange(name, value)}
                   />
                 </div>

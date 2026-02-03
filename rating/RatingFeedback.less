@@ -12,6 +12,13 @@
   padding: 24px 16px;
 }
 
+/* Rated state - different styling */
+.rating-feedback-container.rated {
+  background: linear-gradient(135deg, #fef9e7 0%, #fcf3cf 100%);
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
 .rating-feedback-header {
   margin-bottom: 8px;
 }
@@ -36,6 +43,12 @@
   line-height: 1.5;
 }
 
+/* Rated state description */
+.rating-feedback-container.rated .rating-feedback-description {
+  color: #52c41a;
+  font-weight: 500;
+}
+
 .rating-feedback-stars {
   margin-top: 8px;
 }
@@ -48,10 +61,23 @@
   margin-right: 8px;
 }
 
-/* Hover effect */
-.rating-feedback-stars .ant-rate-star:hover {
+/* Score display */
+.rating-score {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #faad14;
+}
+
+/* Hover effect for interactive stars */
+.rating-feedback-container:not(.rated) .ant-rate-star:hover {
   transform: scale(1.1);
   transition: transform 0.2s ease-in-out;
+}
+
+/* Disabled stars styling */
+.rating-feedback-container.rated .ant-rate-star {
+  cursor: default;
 }
 
 /* Animation khi component mount */
@@ -70,6 +96,24 @@
   animation: fadeInUp 0.3s ease-out;
 }
 
+/* Card header styling */
+.rating-feedback-card .card-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 0;
+}
+
+.rating-feedback-card .card-header .headerInGeorgia {
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+}
+
+/* Card body */
+.rating-feedback-card .card-body {
+  padding: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .rating-feedback-title {
@@ -78,5 +122,9 @@
 
   .rating-feedback-stars .ant-rate {
     font-size: 24px;
+  }
+
+  .rating-score {
+    font-size: 14px;
   }
 }

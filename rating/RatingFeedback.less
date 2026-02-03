@@ -1,90 +1,70 @@
-/* RatingFeedback Component Styles */
+/* RatingFeedback Component Styles - Simple Layout như ảnh mẫu */
 
-.rating-feedback-card {
-  margin-bottom: 16px;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03),
-    0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+/* Rating Feedback Content - Layout đơn giản không có box */
+.rating-feedback-content {
+  padding: 24px 32px;
 }
 
-.rating-feedback-container {
-  text-align: center;
-  padding: 24px 16px;
+/* Rating Title - Icon + Text */
+.rating-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-/* Rated state - different styling */
-.rating-feedback-container.rated {
-  background: linear-gradient(135deg, #fef9e7 0%, #fcf3cf 100%);
-  border-radius: 8px;
-  margin: 8px 0;
-}
-
-.rating-feedback-header {
-  margin-bottom: 8px;
-}
-
-.rating-feedback-icon {
-  font-size: 24px;
+.rating-icon {
+  font-size: 20px;
   margin-right: 8px;
-  vertical-align: middle;
 }
 
-.rating-feedback-title {
-  font-size: 18px;
+.rating-text {
+  font-size: 16px;
   font-weight: 600;
-  vertical-align: middle;
   color: #262626;
 }
 
-.rating-feedback-description {
+/* Rating Description - Gray text */
+.rating-description {
   color: #8c8c8c;
-  margin-bottom: 16px;
   font-size: 14px;
   line-height: 1.5;
+  margin-bottom: 16px;
 }
 
-/* Rated state description */
-.rating-feedback-container.rated .rating-feedback-description {
-  color: #52c41a;
-  font-weight: 500;
+/* Rating Stars Container */
+.rating-stars {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.rating-feedback-stars {
-  margin-top: 8px;
+.rating-stars .ant-rate {
+  font-size: 28px;
 }
 
-.rating-feedback-stars .ant-rate {
-  font-size: 32px;
-}
-
-.rating-feedback-stars .ant-rate-star {
-  margin-right: 8px;
-}
-
-/* Score display */
-.rating-score {
-  margin-top: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #faad14;
+.rating-stars .ant-rate-star {
+  margin-right: 4px;
 }
 
 /* Hover effect for interactive stars */
-.rating-feedback-container:not(.rated) .ant-rate-star:hover {
+.rating-stars .ant-rate-star:not(.ant-rate-star-zero):hover {
   transform: scale(1.1);
   transition: transform 0.2s ease-in-out;
 }
 
-/* Disabled stars styling */
-.rating-feedback-container.rated .ant-rate-star {
-  cursor: default;
+/* Score display (khi đã rated) */
+.rating-score {
+  font-size: 16px;
+  font-weight: 600;
+  color: #faad14;
+  margin-left: 8px;
 }
 
 /* Animation khi component mount */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -92,35 +72,34 @@
   }
 }
 
-.rating-feedback-card {
+.rating-feedback-content {
   animation: fadeInUp 0.3s ease-out;
-}
-
-/* Card header styling */
-.rating-feedback-card .card-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid #f0f0f0;
-  margin-bottom: 0;
-}
-
-.rating-feedback-card .card-header .headerInGeorgia {
-  font-size: 16px;
-  font-weight: 600;
-  color: #262626;
-}
-
-/* Card body */
-.rating-feedback-card .card-body {
-  padding: 0;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .rating-feedback-title {
-    font-size: 16px;
+  .rating-feedback-content {
+    padding: 20px 24px;
   }
 
-  .rating-feedback-stars .ant-rate {
+  .rating-title {
+    margin-bottom: 10px;
+  }
+
+  .rating-icon {
+    font-size: 18px;
+  }
+
+  .rating-text {
+    font-size: 15px;
+  }
+
+  .rating-description {
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .rating-stars .ant-rate {
     font-size: 24px;
   }
 
@@ -128,3 +107,15 @@
     font-size: 14px;
   }
 }
+
+/* Tablet */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .rating-feedback-content {
+    padding: 22px 28px;
+  }
+
+  .rating-stars .ant-rate {
+    font-size: 26px;
+  }
+}
+

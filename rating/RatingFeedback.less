@@ -1,0 +1,82 @@
+/* RatingFeedback Component Styles */
+
+.rating-feedback-card {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03),
+    0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+}
+
+.rating-feedback-container {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.rating-feedback-header {
+  margin-bottom: 8px;
+}
+
+.rating-feedback-icon {
+  font-size: 24px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.rating-feedback-title {
+  font-size: 18px;
+  font-weight: 600;
+  vertical-align: middle;
+  color: #262626;
+}
+
+.rating-feedback-description {
+  color: #8c8c8c;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.rating-feedback-stars {
+  margin-top: 8px;
+}
+
+.rating-feedback-stars .ant-rate {
+  font-size: 32px;
+}
+
+.rating-feedback-stars .ant-rate-star {
+  margin-right: 8px;
+}
+
+/* Hover effect */
+.rating-feedback-stars .ant-rate-star:hover {
+  transform: scale(1.1);
+  transition: transform 0.2s ease-in-out;
+}
+
+/* Animation khi component mount */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rating-feedback-card {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .rating-feedback-title {
+    font-size: 16px;
+  }
+
+  .rating-feedback-stars .ant-rate {
+    font-size: 24px;
+  }
+}

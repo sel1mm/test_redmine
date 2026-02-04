@@ -1,21 +1,3 @@
-// Lọc các field có updateOnFinish = true và type = RATING hoặc RATING_COMMENT
-const ratingFields = record.customFields?.filter((field) => {
-  return (
-    field.updateOnFinish &&
-    (field.type === FIELD_TYPES.RATING || 
-     field.type === FIELD_TYPES.RATING_COMMENT)
-  );
-});
-
-
-=====================
-
-
-
-// Nếu chưa có value, hiển thị interactive rating
-// ⭐ Check nếu là RATING_COMMENT type
-const isRatingComment = field.type === FIELD_TYPES.RATING_COMMENT;
-
 return (
   <div key={name} className="rating-feedback-content">
     <div className="rating-title">
@@ -41,14 +23,15 @@ return (
       />
     </div>
 
-    {/* ⭐ CHỈ hiển thị textarea nếu type = RATING_COMMENT */}
-    {isRatingComment && (
+    {/* ⭐ Hiển thị textarea nếu tìm thấy commentField */}
+    {commentField && (
       <div className="rating-comment">
         <label className="rating-comment-label">
-          {formatMessage({
-            id: 'app.global.customField.ratingComment',
-            defaultMessage: 'Comment',
-          })}
+          {formatLabel(commentField.label, currentLocale) || 
+           formatMessage({
+             id: 'app.global.customField.ratingComment',
+             defaultMessage: 'Comment',
+           })}
         </label>
         <Input.TextArea
           rows={4}
@@ -68,7 +51,7 @@ return (
     <div className="rating-submit">
       <Button
         type="primary"
-        onClick={() => handleSubmit(name, isRatingComment)}
+        onClick={() => handleSubmit(name, commentField)}
         loading={submitting}
         disabled={ratingValue === 0}
       >
@@ -83,12 +66,10 @@ return (
 
 
 
-=======================
+========
 
 
-
-
-const handleSubmit = async (fieldName, isRatingComment) => {
+const handleSubmit = async (ratingFieldName, commentField) => {
   if (ratingValue === 0) {
     notification.warning({
       message: formatMessage({
@@ -102,35 +83,46 @@ const handleSubmit = async (fieldName, isRatingComment) => {
   setSubmitting(true);
 
   try {
-    // ⭐ Nếu là RATING_COMMENT, gửi object { rating, comment }
-    // Nếu là RATING, chỉ gửi number
-    const payload = {
-      fieldName: fieldName,
-      value: isRatingComment
-        ? {
-            rating: ratingValue,
-            comment: comment.trim() || '', // Comment có thể empty
-          }
-        : ratingValue, // Chỉ gửi số
-      id: record.id,
-    };
-
-    const res = await dispatch({
+    // ⭐ Update rating field
+    const ratingRes = await dispatch({
       type: 'ticketsV2/updateCustomField',
-      payload,
+      payload: {
+        fieldName: ratingFieldName,
+        value: ratingValue,
+        id: record.id,
+      },
     });
 
-    if (res?.error) {
+    if (ratingRes?.error) {
       notification.error({
         message:
-          res.error.message ||
+          ratingRes.error.message ||
           formatMessage({
             id: 'tkm.ticket.action.error',
           }),
       });
+      setSubmitting(false);
       return;
     }
 
+    // ⭐ Update comment field nếu có
+    if (commentField && comment.trim()) {
+      const commentRes = await dispatch({
+        type: 'ticketsV2/updateCustomField',
+        payload: {
+          fieldName: commentField.name,
+          value: comment.trim(),
+          id: record.id,
+        },
+      });
+
+      if (commentRes?.error) {
+        console.warn('Comment save failed:', commentRes.error);
+        // Không block flow, rating đã save thành công
+      }
+    }
+
+    // Show success
     Modal.success({
       title: formatMessage({
         id: 'app.global.customField.ratingSuccess.title',
@@ -152,19 +144,14 @@ const handleSubmit = async (fieldName, isRatingComment) => {
   }
 };
 
-=========================
+
+
+======
+
+
 
 
 if (hasValue) {
-  // ⭐ Check nếu là RATING_COMMENT và value là object
-  const isRatingComment = field.type === FIELD_TYPES.RATING_COMMENT;
-  const ratingVal = isRatingComment && typeof fieldValue === 'object'
-    ? fieldValue.rating
-    : Number(fieldValue);
-  const commentVal = isRatingComment && typeof fieldValue === 'object'
-    ? fieldValue.comment
-    : '';
-
   return (
     <div key={name} className="rating-feedback-content rated">
       <div className="rating-title">
@@ -184,21 +171,22 @@ if (hasValue) {
           allowHalf
           disabled
           count={maxStars}
-          value={ratingVal}
+          value={Number(fieldValue)}
         />
       </div>
 
       {/* ⭐ Hiển thị comment nếu có */}
-      {isRatingComment && commentVal && (
+      {commentField && commentValue && (
         <div className="rating-comment-display">
           <div className="rating-comment-label">
-            {formatMessage({
-              id: 'app.global.customField.yourComment',
-              defaultMessage: 'Your comment:',
-            })}
+            {formatLabel(commentField.label, currentLocale) ||
+             formatMessage({
+               id: 'app.global.customField.yourComment',
+               defaultMessage: 'Your comment:',
+             })}
           </div>
           <div className="rating-comment-text">
-            {commentVal}
+            {commentValue}
           </div>
         </div>
       )}

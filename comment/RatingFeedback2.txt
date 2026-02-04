@@ -1,0 +1,207 @@
+// Lọc các field có updateOnFinish = true và type = RATING hoặc RATING_COMMENT
+const ratingFields = record.customFields?.filter((field) => {
+  return (
+    field.updateOnFinish &&
+    (field.type === FIELD_TYPES.RATING || 
+     field.type === FIELD_TYPES.RATING_COMMENT)
+  );
+});
+
+
+=====================
+
+
+
+// Nếu chưa có value, hiển thị interactive rating
+// ⭐ Check nếu là RATING_COMMENT type
+const isRatingComment = field.type === FIELD_TYPES.RATING_COMMENT;
+
+return (
+  <div key={name} className="rating-feedback-content">
+    <div className="rating-title">
+      <span className="rating-icon">⭐</span>
+      <span className="rating-text">{messageText || label}</span>
+    </div>
+
+    <div className="rating-description">
+      {formatMessage({
+        id: 'app.global.customField.ratingDescription',
+        defaultMessage:
+          'Your feedback helps us improve our ticket processing quality.',
+      })}
+    </div>
+
+    {/* Rating Stars */}
+    <div className="rating-stars">
+      <Rate
+        allowHalf
+        count={maxStars}
+        value={ratingValue}
+        onChange={(value) => setRatingValue(value)}
+      />
+    </div>
+
+    {/* ⭐ CHỈ hiển thị textarea nếu type = RATING_COMMENT */}
+    {isRatingComment && (
+      <div className="rating-comment">
+        <label className="rating-comment-label">
+          {formatMessage({
+            id: 'app.global.customField.ratingComment',
+            defaultMessage: 'Comment',
+          })}
+        </label>
+        <Input.TextArea
+          rows={4}
+          placeholder={formatMessage({
+            id: 'app.global.customField.ratingCommentPlaceholder',
+            defaultMessage: 'Tell us what you liked or how we can improve...',
+          })}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          maxLength={500}
+          showCount
+        />
+      </div>
+    )}
+
+    {/* Submit Button */}
+    <div className="rating-submit">
+      <Button
+        type="primary"
+        onClick={() => handleSubmit(name, isRatingComment)}
+        loading={submitting}
+        disabled={ratingValue === 0}
+      >
+        {formatMessage({
+          id: 'app.global.customField.submitEvaluation',
+          defaultMessage: 'Submit Evaluation',
+        })}
+      </Button>
+    </div>
+  </div>
+);
+
+
+
+=======================
+
+
+
+
+const handleSubmit = async (fieldName, isRatingComment) => {
+  if (ratingValue === 0) {
+    notification.warning({
+      message: formatMessage({
+        id: 'app.global.customField.ratingRequired',
+        defaultMessage: 'Please select a rating before submitting.',
+      }),
+    });
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    // ⭐ Nếu là RATING_COMMENT, gửi object { rating, comment }
+    // Nếu là RATING, chỉ gửi number
+    const payload = {
+      fieldName: fieldName,
+      value: isRatingComment
+        ? {
+            rating: ratingValue,
+            comment: comment.trim() || '', // Comment có thể empty
+          }
+        : ratingValue, // Chỉ gửi số
+      id: record.id,
+    };
+
+    const res = await dispatch({
+      type: 'ticketsV2/updateCustomField',
+      payload,
+    });
+
+    if (res?.error) {
+      notification.error({
+        message:
+          res.error.message ||
+          formatMessage({
+            id: 'tkm.ticket.action.error',
+          }),
+      });
+      return;
+    }
+
+    Modal.success({
+      title: formatMessage({
+        id: 'app.global.customField.ratingSuccess.title',
+        defaultMessage: 'Rating submitted successfully',
+      }),
+      content: formatMessage({
+        id: 'app.global.customField.ratingSuccess.content',
+        defaultMessage: 'Thank you for your feedback.',
+      }),
+    });
+
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  } catch (error) {
+    console.error('Error submitting rating:', error);
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+=========================
+
+
+if (hasValue) {
+  // ⭐ Check nếu là RATING_COMMENT và value là object
+  const isRatingComment = field.type === FIELD_TYPES.RATING_COMMENT;
+  const ratingVal = isRatingComment && typeof fieldValue === 'object'
+    ? fieldValue.rating
+    : Number(fieldValue);
+  const commentVal = isRatingComment && typeof fieldValue === 'object'
+    ? fieldValue.comment
+    : '';
+
+  return (
+    <div key={name} className="rating-feedback-content rated">
+      <div className="rating-title">
+        <span className="rating-icon">⭐</span>
+        <span className="rating-text">{messageText || label}</span>
+      </div>
+
+      <div className="rating-description">
+        {formatMessage({
+          id: 'app.global.customField.ratingThankYou',
+          defaultMessage: 'Thank you for your feedback!',
+        })}
+      </div>
+
+      <div className="rating-stars">
+        <Rate
+          allowHalf
+          disabled
+          count={maxStars}
+          value={ratingVal}
+        />
+      </div>
+
+      {/* ⭐ Hiển thị comment nếu có */}
+      {isRatingComment && commentVal && (
+        <div className="rating-comment-display">
+          <div className="rating-comment-label">
+            {formatMessage({
+              id: 'app.global.customField.yourComment',
+              defaultMessage: 'Your comment:',
+            })}
+          </div>
+          <div className="rating-comment-text">
+            {commentVal}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
